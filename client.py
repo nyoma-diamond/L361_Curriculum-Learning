@@ -87,7 +87,7 @@ def load_data():
 # Load model and data (simple CNN, CIFAR-10)
 local_net = Net().to(DEVICE)
 global_net = Net().to(DEVICE)
-trainloader, testloader = load_data()
+train_loader, test_loader = load_data()
 
 # Define Flower client
 class FlowerClient(fl.client.NumPyClient):
@@ -101,16 +101,16 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(global_net, parameters)
-        train(local_net, global_net, trainloader, _lambda=1, epochs=1)
-        return self.get_parameters(config={}), len(trainloader.dataset), {}
+        train(local_net, global_net, train_loader, _lambda=1, epochs=1)
+        return self.get_parameters(config={}), len(train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
         self.set_parameters(global_net, parameters)
-        local_loss, local_accuracy = test(local_net, testloader)
-        global_loss, global_accuracy = test(global_net, testloader)
+        local_loss, local_accuracy = test(local_net, test_loader)
+        global_loss, global_accuracy = test(global_net, test_loader)
         return \
             float(global_loss), \
-            len(testloader.dataset), \
+            len(test_loader.dataset), \
             {
                 'local_loss': float(local_loss),
                 'global_accuracy': float(global_accuracy),
