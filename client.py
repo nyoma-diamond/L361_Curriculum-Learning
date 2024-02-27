@@ -112,7 +112,7 @@ class FlowerClient(fl.client.NumPyClient):
             float(global_loss), \
             len(testloader.dataset), \
             {
-                'global_loss': float(global_loss),
+                'local_loss': float(local_loss),
                 'global_accuracy': float(global_accuracy),
                 'local_accuracy': float(local_accuracy)
             }
