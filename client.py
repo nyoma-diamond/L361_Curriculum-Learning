@@ -51,8 +51,8 @@ def train(local_net, global_net, trainloader, epochs, _lambda):
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
             criterion(local_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
-            for param1, param2 in zip(local_net.parameters(), global_net.parameters()):
-                param1.grad += _lambda * (param1 - param2)
+            for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
+                local_param.grad += _lambda * (local_param - global_param)
             local_optimizer.step()
 
             # Train the global model with our data
