@@ -27,7 +27,7 @@ class DittoStrategy(fl.server.strategy.FedAvg):
 
         # Aggregate and print custom metric
         avg_aggregated_accuracy = sum(weighted_global_accuracies) / sum(examples)
-        print(f'Round {server_round} accuracy aggregated from client results: {avg_aggregated_accuracy}')
+        print(f'Round {server_round} global accuracy aggregated from client results: {avg_aggregated_accuracy}')
 
 
         # Return aggregated loss and metrics (i.e., aggregated accuracy)
