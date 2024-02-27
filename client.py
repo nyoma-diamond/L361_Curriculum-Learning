@@ -38,6 +38,9 @@ class Net(nn.Module):
 
 def train(local_net, global_net, trainloader, epochs, _lambda):
     """Train the model on the training set."""
+    local_net.train()
+    global_net.train()
+
     criterion = torch.nn.CrossEntropyLoss()
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.001, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.001, momentum=0.9)
@@ -57,6 +60,9 @@ def train(local_net, global_net, trainloader, epochs, _lambda):
 
 def test(net, testloader):
     """Validate the model on the test set."""
+    local_net.eval()
+    global_net.eval()
+
     criterion = torch.nn.CrossEntropyLoss()
     correct, total, loss = 0, 0, 0.0
     with torch.no_grad():
@@ -99,9 +105,17 @@ class FlowerClient(fl.client.NumPyClient):
         return self.get_parameters(config={}), len(trainloader.dataset), {}
 
     def evaluate(self, parameters, config):
-        # self.set_parameters(global_net, parameters)
-        loss, accuracy = test(local_net, testloader)
-        return float(loss), len(testloader.dataset), {"accuracy": float(accuracy)}
+        self.set_parameters(global_net, parameters)
+        local_loss, local_accuracy = test(local_net, testloader)
+        global_loss, global_accuracy = test(global_net, testloader)
+        return \
+            float(global_loss), \
+            len(testloader.dataset), \
+            {
+                'global_loss': float(global_loss),
+                'global_accuracy': float(global_accuracy),
+                'local_accuracy': float(local_accuracy)
+            }
 
 # Start Flower client
 fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=FlowerClient())
