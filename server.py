@@ -5,7 +5,7 @@ from flwr.server.client_proxy import ClientProxy
 from typing import List, Tuple, Union, Optional, Dict
 
 
-# modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
+# Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
 class DittoStrategy(fl.server.strategy.FedAvg):
     def aggregate_evaluate(
             self,
@@ -40,7 +40,7 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
 
-# Start Flower server
+# Start Flower server (modified from https://flower.ai/)
 fl.server.start_server(
     server_address="0.0.0.0:8080",
     config=fl.server.ServerConfig(num_rounds=3),
