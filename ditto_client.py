@@ -149,4 +149,4 @@ def ditto_client_fn(cid: int) -> DittoClient:
     train_loader, val_loader = load_data()
     # train_loader = train_loaders[int(cid)]
     # val_loader = val_loaders[int(cid)]
-    return DittoClient(cid, local_net, global_net, train_loader, val_loader)
+    return DittoClient(cid, local_net, global_net, train_loader, val_loader, 1, 1)
