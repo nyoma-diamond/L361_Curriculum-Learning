@@ -82,12 +82,12 @@ def train(net, trainloader, config, epochs):
             optimizer.zero_grad()
             
             loss_indv = criterion(net(images), labels) # get individual losses
-            print(loss_indv)
+            # print(loss_indv)
             b = loss_indv >= config["loss_threshold"] # get indicies of which are larger than loss_threshold
             trash_indices = b.nonzero()
             d = loss_indv < config["loss_threshold"] # get indicies of which are larger than loss_threshold
             keep_indices = d.nonzero()
-            print(keep_indices)
+            # print(keep_indices)
             # print(count)
             # show_failed_imgs(images[trash_indices],labels[trash_indices],loss_indv[trash_indices])
             criterion_mean(net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()]).backward()
@@ -151,9 +151,6 @@ class FlowerClient(fl.client.NumPyClient):
     self.set_parameters(parameters)
     loss, accuracy = test(self.net, self.testloader)
     return float(loss), len(self.testloader.dataset), {"accuracy": float(accuracy)}
-
-# Start Flower client
-fl.client.start_client(server_address="127.0.0.1:8080", client=FlowerClient().to_client())
 
 def client_fn(cid: int) -> FlowerClient:
     # Load model and data (simple CNN, CIFAR-10)

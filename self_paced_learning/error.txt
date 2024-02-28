@@ -10,7 +10,6 @@ average the thresholds
 - make sure to RESHUFFLE EACH BATCH
 - learning rate scheduling
 - also make it do loss calculations in 1 pass not twice
-- implement n'yoma's start simulation function to not have to run different clients each time
 
 ---------------------------------------------
 
@@ -28,6 +27,8 @@ Things I got done:
 - rerun only using the indicies that are under the threshold of each batch with the 
  cross_entropy with mean loss function, and backward propagate into the optimizer
 - Also this runs on my gpu which make me happy :D
+- implemented n'yoma's start simulation function to not have to run different clients each time
+
 
 things kinda in the works but not fully fleshed out yet:
 - i figured out how to save separately using the indicies of all the images in each batch 
