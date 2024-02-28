@@ -2,8 +2,10 @@
 
 from collections import OrderedDict
 import warnings
+from typing import Tuple, Dict
 
 import flwr as fl
+from flwr.common.typing import Config, NDArrays, Scalar
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -38,7 +40,7 @@ class Net(nn.Module):
         x = F.relu(self.fc2(x))
         return self.fc3(x)
 
-def train(local_net, global_net, train_loader, _lambda, epochs):
+def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, _lambda: float, epochs: int):
     """Train the model on the training set."""
     local_net.train()
     global_net.train()
@@ -60,7 +62,7 @@ def train(local_net, global_net, train_loader, _lambda, epochs):
             criterion(global_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
             global_optimizer.step()
 
-def test(net, test_loader):
+def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
     """Validate the model on the test set."""
     net.eval()
 
@@ -74,7 +76,7 @@ def test(net, test_loader):
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     return loss / len(test_loader.dataset), correct / total
 
-def load_data():
+def load_data() -> Tuple[DataLoader, DataLoader]:
     """Load CIFAR-10 (training and test set)."""
     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     train_set = CIFAR10("./data", train=True, download=True, transform=trf)
@@ -88,29 +90,38 @@ def load_data():
 # Define Ditto client
 class DittoClient(fl.client.NumPyClient):
     # Modified from https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-    def __init__(self, cid, local_net, global_net, train_loader, val_loader, _lambda, epochs_per_round):
+    def __init__(self,
+                 cid: int,
+                 local_net: nn.Module,
+                 global_net: nn.Module,
+                 train_loader: DataLoader,
+                 val_loader: DataLoader,
+                 _lambda: float, epochs_per_round: int):
         self.cid = cid
         self.local_net = local_net
         self.global_net = global_net
         self.train_loader = train_loader
         self.val_loader = val_loader
+
+        # TODO: these may be altered via `config` during operation
         self._lambda = _lambda
         self.epochs_per_round = epochs_per_round
 
-    def get_parameters(self, config):
+    def get_parameters(self, config: Config) -> NDArrays:
         return [val.cpu().numpy() for _, val in self.global_net.state_dict().items()]
 
-    def set_parameters(self, net, parameters):
+    def set_parameters(self, net: nn.Module, parameters: NDArrays):
         params_dict = zip(net.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         net.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters, config):
+    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
         train(self.local_net, self.global_net, self.train_loader, self._lambda, self.epochs_per_round)
+        # TODO: report training metrics
         return self.get_parameters(config={}), len(self.train_loader.dataset), {}
 
-    def evaluate(self, parameters, config):
+    def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
         local_loss, local_accuracy = test(self.local_net, self.val_loader)
         global_loss, global_accuracy = test(self.global_net, self.val_loader)
@@ -125,7 +136,7 @@ class DittoClient(fl.client.NumPyClient):
 
 
 
-def ditto_client_fn(cid) -> DittoClient:
+def ditto_client_fn(cid: int) -> DittoClient:
     """Ditto client generator"""
     local_net = Net().to(DEVICE)
     global_net = Net().to(DEVICE)
