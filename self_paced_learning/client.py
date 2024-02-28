@@ -118,30 +118,48 @@ def load_data():
 # Federating the pipeline with Flower
 # #############################################################################
 
-# Load model and data (simple CNN, CIFAR-10)
-net = Net().to(DEVICE)
-trainloader, testloader = load_data()
 
 
 # Define Flower client
 class FlowerClient(fl.client.NumPyClient):
+  def __init__(self,
+                 cid: int,
+                 net: nn.Module,
+                 trainloader: DataLoader,
+                 testloader: DataLoader):
+        
+        self.cid = cid
+        self.net = net
+        self.trainloader = trainloader
+        self.testloader = testloader
+
+
   def get_parameters(self, config):
-    return [val.cpu().numpy() for _, val in net.state_dict().items()]
+    return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
 
   def set_parameters(self, parameters):
-    params_dict = zip(net.state_dict().keys(), parameters)
+    params_dict = zip(self.net.state_dict().keys(), parameters)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    net.load_state_dict(state_dict, strict=True)
+    self.net.load_state_dict(state_dict, strict=True)
 
   def fit(self, parameters, config):
     self.set_parameters(parameters)
-    train(net, trainloader, config, epochs=1)
-    return self.get_parameters(config={}), len(trainloader.dataset), {}
+    train(self.net, self.trainloader, config, epochs=1)
+    return self.get_parameters(config={}), len(self.trainloader.dataset), {}
 
   def evaluate(self, parameters, config):
     self.set_parameters(parameters)
-    loss, accuracy = test(net, testloader)
-    return float(loss), len(testloader.dataset), {"accuracy": float(accuracy)}
+    loss, accuracy = test(self.net, self.testloader)
+    return float(loss), len(self.testloader.dataset), {"accuracy": float(accuracy)}
 
 # Start Flower client
 fl.client.start_client(server_address="127.0.0.1:8080", client=FlowerClient().to_client())
+
+def client_fn(cid: int) -> FlowerClient:
+    # Load model and data (simple CNN, CIFAR-10)
+    print("MADE CLIENT")
+    net = Net().to(DEVICE)
+    trainloader, testloader = load_data()
+    # train_loader = train_loaders[int(cid)]
+    # val_loader = val_loaders[int(cid)]
+    return FlowerClient(cid, net, trainloader, testloader)

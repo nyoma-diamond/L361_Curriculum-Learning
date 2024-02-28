@@ -9,6 +9,7 @@ Next level todos:
 average the thresholds
 - make sure to RESHUFFLE EACH BATCH
 - learning rate scheduling
+- also make it do loss calculations in 1 pass not twice
 - implement n'yoma's start simulation function to not have to run different clients each time
 
 ---------------------------------------------

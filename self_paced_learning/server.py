@@ -1,5 +1,9 @@
 import flwr as fl
 
+from client import client_fn
+
+
+
 # TODO: work on this fit_config function for more specialized cases
 def fit_config(server_round: int):
     """Return training configuration dict for each round.
@@ -20,9 +24,10 @@ SelfPaced = fl.server.strategy.FedAvg(
     on_fit_config_fn=fit_config        #fit_config,  # For future config function based changes
 )
 
-# Start Flower server (modified from https://flower.ai/)
-fl.server.start_server(
-    server_address="0.0.0.0:8080",
-    config=fl.server.ServerConfig(num_rounds=3),
+# https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
+fl.simulation.start_simulation(
+    num_clients=3,
+    client_fn=client_fn,
+    config=fl.server.ServerConfig(num_rounds=2),
     strategy=SelfPaced
 )
