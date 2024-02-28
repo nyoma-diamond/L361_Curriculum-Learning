@@ -15,7 +15,7 @@ from torchvision.datasets import CIFAR10
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
 # #############################################################################
 
-warnings.filterwarnings("ignore", category=UserWarning)
+# warnings.filterwarnings("ignore", category=UserWarning)
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Net(nn.Module):
@@ -38,7 +38,7 @@ class Net(nn.Module):
         x = F.relu(self.fc2(x))
         return self.fc3(x)
 
-def train(local_net, global_net, trainloader, epochs, _lambda):
+def train(local_net, global_net, train_loader, _lambda, epochs):
     """Train the model on the training set."""
     local_net.train()
     global_net.train()
@@ -47,7 +47,7 @@ def train(local_net, global_net, trainloader, epochs, _lambda):
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.001, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.001, momentum=0.9)
     for _ in range(epochs):
-        for images, labels in trainloader:
+        for images, labels in train_loader:
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
             criterion(local_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
@@ -60,41 +60,45 @@ def train(local_net, global_net, trainloader, epochs, _lambda):
             criterion(global_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
             global_optimizer.step()
 
-def test(net, testloader):
+def test(net, test_loader):
     """Validate the model on the test set."""
-    local_net.eval()
-    global_net.eval()
+    net.eval()
 
     criterion = torch.nn.CrossEntropyLoss()
     correct, total, loss = 0, 0, 0.0
     with torch.no_grad():
-        for images, labels in testloader:
+        for images, labels in test_loader:
             outputs = net(images.to(DEVICE))
             loss += criterion(outputs, labels.to(DEVICE)).item()
             total += labels.size(0)
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-    return loss / len(testloader.dataset), correct / total
+    return loss / len(test_loader.dataset), correct / total
 
 def load_data():
     """Load CIFAR-10 (training and test set)."""
     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    trainset = CIFAR10("./data", train=True, download=True, transform=trf)
-    testset = CIFAR10("./data", train=False, download=True, transform=trf)
-    return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+    train_set = CIFAR10("./data", train=True, download=True, transform=trf)
+    test_set = CIFAR10("./data", train=False, download=True, transform=trf)
+    return DataLoader(train_set, batch_size=32, shuffle=True), DataLoader(test_set)
 
 # #############################################################################
 # Federating the pipeline with Flower
 # #############################################################################
 
-# Load model and data (simple CNN, CIFAR-10)
-local_net = Net().to(DEVICE)
-global_net = Net().to(DEVICE)
-train_loader, test_loader = load_data()
+# Define Ditto client
+class DittoClient(fl.client.NumPyClient):
+    # Modified from https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
+    def __init__(self, cid, local_net, global_net, train_loader, val_loader, _lambda, epochs_per_round):
+        self.cid = cid
+        self.local_net = local_net
+        self.global_net = global_net
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self._lambda = _lambda
+        self.epochs_per_round = epochs_per_round
 
-# Define Flower client
-class FlowerClient(fl.client.NumPyClient):
     def get_parameters(self, config):
-        return [val.cpu().numpy() for _, val in global_net.state_dict().items()]
+        return [val.cpu().numpy() for _, val in self.global_net.state_dict().items()]
 
     def set_parameters(self, net, parameters):
         params_dict = zip(net.state_dict().keys(), parameters)
@@ -102,22 +106,30 @@ class FlowerClient(fl.client.NumPyClient):
         net.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters, config):
-        self.set_parameters(global_net, parameters)
-        train(local_net, global_net, train_loader, _lambda=1, epochs=1)
-        return self.get_parameters(config={}), len(train_loader.dataset), {}
+        self.set_parameters(self.global_net, parameters)
+        train(self.local_net, self.global_net, self.train_loader, self._lambda, self.epochs_per_round)
+        return self.get_parameters(config={}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
-        self.set_parameters(global_net, parameters)
-        local_loss, local_accuracy = test(local_net, test_loader)
-        global_loss, global_accuracy = test(global_net, test_loader)
+        self.set_parameters(self.global_net, parameters)
+        local_loss, local_accuracy = test(self.local_net, self.val_loader)
+        global_loss, global_accuracy = test(self.global_net, self.val_loader)
         return \
             float(global_loss), \
-            len(test_loader.dataset), \
+            len(self.val_loader.dataset), \
             {
                 'local_loss': float(local_loss),
                 'global_accuracy': float(global_accuracy),
                 'local_accuracy': float(local_accuracy)
             }
 
-# Start Flower client
-fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=FlowerClient())
+
+
+def ditto_client_fn(cid) -> DittoClient:
+    """Ditto client generator"""
+    local_net = Net().to(DEVICE)
+    global_net = Net().to(DEVICE)
+    train_loader, val_loader = load_data()
+    # train_loader = train_loaders[int(cid)]
+    # val_loader = val_loaders[int(cid)]
+    return DittoClient(cid, local_net, global_net, train_loader, val_loader)

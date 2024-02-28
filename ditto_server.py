@@ -4,6 +4,8 @@ from flwr.server.client_proxy import ClientProxy
 
 from typing import List, Tuple, Union, Optional, Dict
 
+from ditto_client import ditto_client_fn
+
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
 class DittoStrategy(fl.server.strategy.FedAvg):
@@ -40,9 +42,10 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
 
-# Start Flower server (modified from https://flower.ai/)
-fl.server.start_server(
-    server_address="0.0.0.0:8080",
+# https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
+fl.simulation.start_simulation(
+    num_clients=5,
+    client_fn=ditto_client_fn,
     config=fl.server.ServerConfig(num_rounds=3),
     strategy=DittoStrategy()
 )
