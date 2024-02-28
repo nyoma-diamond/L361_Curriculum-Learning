@@ -1,0 +1,46 @@
+Ok making a list of things i need to keep track of as im coding 
+cause im definitely forgetting as i keeep going through and getting new errors
+
+Next level todos:
+- implement a changing threshold over time 
+- maybe something like Ignore the top n%?
+- Use the first epoch as a tester of how much we should set the threshold and keep updating this each time
+- Global server side method >> clients compute the nth% percentile and send that value back and 
+average the thresholds
+- make sure to RESHUFFLE EACH BATCH
+- learning rate scheduling
+- implement n'yoma's start simulation function to not have to run different clients each time
+
+---------------------------------------------
+
+feb_28 notes:
+
+Things I got done:
+- server takes in a config_fit dictionary that includes a loss_threshold parameter,
+ right now this parameter is constant but we can probably edit as we go on
+ (especially as the mean loss tends to lower as we move through the model tbh)
+- this config parameter is sent to the train function, and within the train function 
+ itself i make 2 different cross entropy loss functions, one with 
+ reduction as none and one as the normal one
+- with the reduction none cross entropy function i check through every image in each 
+ batch and get a tensor of indices of the batch that is over the threshold
+- rerun only using the indicies that are under the threshold of each batch with the 
+ cross_entropy with mean loss function, and backward propagate into the optimizer
+- Also this runs on my gpu which make me happy :D
+
+things kinda in the works but not fully fleshed out yet:
+- i figured out how to save separately using the indicies of all the images in each batch 
+ that are over the threshold (this took me so damn long i hate tensors)
+- using that separate list of images, i can send them into this function that prints out in
+ plt.imshow which images didn't pass
+
+QUESTION: 
+when should we call this function of checking which images didn't pass/ do u think 
+theres an easy way we can save images that didn't pass into a file that we can refer 
+back to later (i definitely think there is but im too lazy to search this up at the moment)
+---------------------------------------------
+
+so currently trying to delete specific indexes corresponding to images within the images tensor
+- have a thingy that gives me the indices of the first dimension, but not much else
+
+also want to print images i skipped later
