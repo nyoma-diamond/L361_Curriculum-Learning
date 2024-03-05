@@ -42,7 +42,7 @@ class Net(nn.Module):
 
 def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, _lambda: float, epochs: int):
     """Train the model on the training set."""
-    if type(local_net) is not (type(global_net)):
+    if type(local_net) is not type(global_net):
         raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
 
     local_net.train()
@@ -100,7 +100,7 @@ class DittoClient(fl.client.NumPyClient):
                  train_loader: DataLoader,
                  val_loader: DataLoader,
                  _lambda: float, epochs_per_round: int):
-        if type(local_net) is not (type(global_net)):
+        if type(local_net) is not type(global_net):
             raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
 
         self.cid = cid

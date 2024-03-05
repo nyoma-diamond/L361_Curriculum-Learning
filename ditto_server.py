@@ -25,18 +25,22 @@ class DittoStrategy(fl.server.strategy.FedAvg):
 
         # Weigh accuracy of each client by number of examples used
         weighted_global_accuracies = [r.metrics['global_accuracy'] * r.num_examples for _, r in results]
+        weighted_local_accuracies = [r.metrics['local_accuracy'] * r.num_examples for _, r in results]
         examples = [r.num_examples for _, r in results]
 
         # Aggregate and print custom metric
-        avg_aggregated_accuracy = sum(weighted_global_accuracies) / sum(examples)
-        print(f'Round {server_round} global accuracy aggregated from client results: {avg_aggregated_accuracy}')
+        avg_global_accuracy = sum(weighted_global_accuracies) / sum(examples)
+        avg_local_accuracy = sum(weighted_local_accuracies) / sum(examples)
+        print(f'Round {server_round} global accuracy aggregated from client results: {avg_global_accuracy}')
+        print(f'Round {server_round} local accuracy aggregated from client results: {avg_local_accuracy}')
 
 
         # Return aggregated loss and metrics (i.e., aggregated accuracy)
         return \
             aggregated_loss, \
             {
-                'avg_global_accuracy': avg_aggregated_accuracy,
+                'avg_global_accuracy': avg_global_accuracy,
+                'avg_local_accuracy': avg_local_accuracy,
                 'local_loss': [r.metrics['local_loss'] for _, r in results],
                 'global_accuracy': [r.metrics['global_accuracy'] for _, r in results],
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
