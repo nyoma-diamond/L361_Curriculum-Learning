@@ -1,3 +1,6 @@
+import os
+import shutil
+
 import flwr as fl
 from flwr.common import EvaluateRes, FitRes, Scalar
 from flwr.server.client_proxy import ClientProxy
@@ -5,6 +8,8 @@ from flwr.server.client_proxy import ClientProxy
 from typing import List, Tuple, Union, Optional, Dict
 
 from ditto_client import ditto_client_fn
+
+from utils import *
 
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
@@ -46,10 +51,20 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
 
+
+if os.path.exists(CLIENT_MODEL_DIR):
+    shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
+os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
+
+num_clients = 2
+
 # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
 fl.simulation.start_simulation(
-    num_clients=5,
+    num_clients=num_clients,
     client_fn=ditto_client_fn,
-    config=fl.server.ServerConfig(num_rounds=3),
-    strategy=DittoStrategy()
+    config=fl.server.ServerConfig(num_rounds=5),
+    strategy=DittoStrategy(),
+    client_resources={
+        'num_cpus': os.cpu_count()//num_clients
+    }
 )

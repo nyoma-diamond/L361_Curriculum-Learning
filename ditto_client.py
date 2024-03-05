@@ -1,7 +1,6 @@
 # Modified from https://flower.ai/
 
 from collections import OrderedDict
-import warnings
 from typing import Tuple, Dict
 
 import flwr as fl
@@ -9,9 +8,11 @@ from flwr.common.typing import Config, NDArrays, Scalar
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, ToTensor, Normalize
 from torchvision.datasets import CIFAR10
+
+from utils import *
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -49,9 +50,9 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     global_net.train()
 
     criterion = torch.nn.CrossEntropyLoss()
-    local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.001, momentum=0.9)
-    global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.001, momentum=0.9)
-    for _ in range(epochs):
+    local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
+    global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
+    for i in range(epochs):
         for images, labels in train_loader:
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
@@ -84,7 +85,7 @@ def load_data() -> Tuple[DataLoader, DataLoader]:
     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     train_set = CIFAR10("./data", train=True, download=True, transform=trf)
     test_set = CIFAR10("./data", train=False, download=True, transform=trf)
-    return DataLoader(train_set, batch_size=32, shuffle=True), DataLoader(test_set)
+    return DataLoader(train_set, batch_size=256, shuffle=True), DataLoader(test_set)
 
 # #############################################################################
 # Federating the pipeline with Flower
@@ -95,23 +96,28 @@ class DittoClient(fl.client.NumPyClient):
     # Modified from https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     def __init__(self,
                  cid: int,
-                 local_net: nn.Module,
-                 global_net: nn.Module,
                  train_loader: DataLoader,
                  val_loader: DataLoader,
                  _lambda: float, epochs_per_round: int):
-        if type(local_net) is not type(global_net):
-            raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
-
         self.cid = cid
-        self.local_net = local_net
-        self.global_net = global_net
         self.train_loader = train_loader
         self.val_loader = val_loader
+
+        self.local_net = Net().to(DEVICE)
+        self.global_net = Net().to(DEVICE)
 
         # TODO: these may be altered via `config` during operation
         self._lambda = _lambda
         self.epochs_per_round = epochs_per_round
+
+    def save_local_model(self):
+        torch.save(self.local_net.state_dict(), f'{CLIENT_MODEL_DIR}/{self.cid}.pth')
+
+    def load_local_model(self):
+        try:
+            self.local_net.load_state_dict(torch.load(f'{CLIENT_MODEL_DIR}/{self.cid}.pth'))
+        except Exception as e:  # this will always occur on the first round
+            print(f'Could not load local model for client {self.cid} due to {type(e).__name__}. Using new model.')
 
     def get_parameters(self, config: Config) -> NDArrays:
         return [val.cpu().numpy() for _, val in self.global_net.state_dict().items()]
@@ -123,12 +129,17 @@ class DittoClient(fl.client.NumPyClient):
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
+        self.load_local_model()
+
         train(self.local_net, self.global_net, self.train_loader, self._lambda, self.epochs_per_round)
+
+        self.save_local_model()
         # TODO: report training metrics
         return self.get_parameters(config={}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
+        self.load_local_model()
         local_loss, local_accuracy = test(self.local_net, self.val_loader)
         global_loss, global_accuracy = test(self.global_net, self.val_loader)
         return \
@@ -143,10 +154,9 @@ class DittoClient(fl.client.NumPyClient):
 
 
 def ditto_client_fn(cid: int) -> DittoClient:
+    print(f'Generating client {cid}')
     """Ditto client generator"""
-    local_net = Net().to(DEVICE)
-    global_net = Net().to(DEVICE)
     train_loader, val_loader = load_data()
     # train_loader = train_loaders[int(cid)]
     # val_loader = val_loaders[int(cid)]
-    return DittoClient(cid, local_net, global_net, train_loader, val_loader, 1, 1)
+    return DittoClient(cid, train_loader, val_loader, 1, 1)
