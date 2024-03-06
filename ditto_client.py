@@ -1,7 +1,7 @@
 # Modified from https://flower.ai/
-
+import copy
 from collections import OrderedDict
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 import flwr as fl
 from flwr.common.typing import Config, NDArrays, Scalar
@@ -109,11 +109,16 @@ class DittoClient(fl.client.NumPyClient):
     def save_local_model(self):
         torch.save(self.local_net.state_dict(), f'{CLIENT_MODEL_DIR}/{self.cid}.pth')
 
-    def load_local_model(self):
+    def load_local_model(self, parameters: Optional[NDArrays]):
         try:
             self.local_net.load_state_dict(torch.load(f'{CLIENT_MODEL_DIR}/{self.cid}.pth'))
         except Exception as e:  # this will always occur on the first round
-            print(f'Could not load local model for client {self.cid} due to {type(e).__name__}. Using new model.')
+            print(f'Could not load local model for client {self.cid} due to {type(e).__name__}. Copying provided parameters to local model.')
+            if parameters is not None:
+                self.set_parameters(self.local_net, parameters)
+            else:
+                print('No parameters provided. Using new randomized local model.')
+                self.local_net = Net().to(DEVICE)
 
     def get_parameters(self, config: Config) -> NDArrays:
         return [val.cpu().numpy() for _, val in self.global_net.state_dict().items()]
@@ -125,7 +130,7 @@ class DittoClient(fl.client.NumPyClient):
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
-        self.load_local_model()
+        self.load_local_model(parameters)
 
         train(self.local_net, self.global_net, self.train_loader, self._lambda, self.epochs_per_round)
 
@@ -135,7 +140,8 @@ class DittoClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Dict[str, Scalar]]:
         self.set_parameters(self.global_net, parameters)
-        self.load_local_model()
+        self.load_local_model(parameters)
+
         local_loss, local_accuracy = test(self.local_net, self.val_loader)
         global_loss, global_accuracy = test(self.global_net, self.val_loader)
         return \
