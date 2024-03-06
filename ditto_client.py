@@ -51,6 +51,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     global_net.train()
 
     criterion = torch.nn.CrossEntropyLoss()
+    # TODO: config for optimizer parameters
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
     for i in range(epochs):
@@ -164,4 +165,4 @@ def ditto_client_fn(cid: int) -> DittoClient:
         drop_last=False
     )
 
-    return DittoClient(cid, train_loader, val_loader, 1, 100)
+    return DittoClient(cid, train_loader, val_loader, 1, 25)
