@@ -54,21 +54,26 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
 
-download_femnist()
 
-if os.path.exists(CLIENT_MODEL_DIR):
-    shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
-os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
 
-num_clients = 5
+if __name__ == '__main__':
+    # Download FEMNIST data (does nothing if already present)
+    download_femnist()
 
-# https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-fl.simulation.start_simulation(
-    num_clients=num_clients,
-    client_fn=ditto_client_fn,
-    config=fl.server.ServerConfig(num_rounds=50),
-    strategy=DittoStrategy(),
-    client_resources={
-        'num_cpus': os.cpu_count()//num_clients
-    }
-)
+    # Reset client models
+    if os.path.exists(CLIENT_MODEL_DIR):
+        shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
+    os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
+
+    num_clients = 5
+
+    # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
+    fl.simulation.start_simulation(
+        num_clients=num_clients,
+        client_fn=ditto_client_fn,
+        config=fl.server.ServerConfig(num_rounds=50),
+        strategy=DittoStrategy(),
+        client_resources={
+            'num_cpus': os.cpu_count()//num_clients
+        }
+    )
