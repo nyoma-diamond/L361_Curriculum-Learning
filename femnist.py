@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 from PIL.Image import Image as ImageType
 from torch.utils.data import Dataset
-import tarfile
+import subprocess
 import gdown
 
 def download_femnist():
@@ -17,7 +17,7 @@ def download_femnist():
     """
     #  Download compressed dataset
     if not Path('./femnist.tar.gz').exists():
-        file_id = '1-CI6-QoEmGiInV23-n_l6Yd8QGWerw8-'
+        file_id = '1MeYgT9qQp973EP7kXnM9KTDGo1-qeuC6'
         gdown.download(
             f'https://drive.google.com/uc?export=download&confirm=pbef&id={file_id}',
             './femnist.tar.gz',
@@ -25,10 +25,9 @@ def download_femnist():
 
     # Decompress dataset
     if not Path('./femnist').exists():
-        with tarfile.open('./femnist.tar.gz') as tar:
-            print('Extracting FEMNIST data...')
-            tar.extractall()
-            print('FEMNIST dataset extracted in ./femnist/data')
+        print('Extracting FEMNIST data...')
+        subprocess.run('tar -xzf ./femnist.tar.gz'.split(), check=True, capture_output=True)
+        print('FEMNIST dataset extracted in ./femnist/data')
 
 
 class FEMNIST(Dataset):
