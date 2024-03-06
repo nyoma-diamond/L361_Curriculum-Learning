@@ -1,4 +1,6 @@
 import os
+os.environ['RAY_DEDUP_LOGS'] = '0'
+
 import shutil
 
 import flwr as fl
@@ -10,6 +12,7 @@ from typing import List, Tuple, Union, Optional, Dict
 from ditto_client import ditto_client_fn
 
 from utils import *
+from femnist import download_femnist
 
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
@@ -51,18 +54,19 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
 
+download_femnist()
 
 if os.path.exists(CLIENT_MODEL_DIR):
     shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
 os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
 
-num_clients = 2
+num_clients = 5
 
 # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
 fl.simulation.start_simulation(
     num_clients=num_clients,
     client_fn=ditto_client_fn,
-    config=fl.server.ServerConfig(num_rounds=5),
+    config=fl.server.ServerConfig(num_rounds=50),
     strategy=DittoStrategy(),
     client_resources={
         'num_cpus': os.cpu_count()//num_clients

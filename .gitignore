@@ -164,3 +164,7 @@ cython_debug/
 data/
 
 client_models/
+
+# FEMNIST dataset
+*femnist.tar.gz
+*femnist

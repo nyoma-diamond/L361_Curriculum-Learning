@@ -9,10 +9,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor, Normalize
-from torchvision.datasets import CIFAR10
+from torchvision.transforms import ToTensor
 
 from utils import *
+from femnist import FEMNIST
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -22,24 +22,25 @@ from utils import *
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Net(nn.Module):
-    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
+    """Simple CNN model for FEMNIST."""
 
     def __init__(self) -> None:
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(256, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc3 = nn.Linear(84, 62)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.fc3(x)
+        return x
 
 def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, _lambda: float, epochs: int):
     """Train the model on the training set."""
@@ -80,12 +81,6 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     return loss / len(test_loader.dataset), correct / total
 
-def load_data() -> Tuple[DataLoader, DataLoader]:
-    """Load CIFAR-10 (training and test set)."""
-    trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    train_set = CIFAR10("./data", train=True, download=True, transform=trf)
-    test_set = CIFAR10("./data", train=False, download=True, transform=trf)
-    return DataLoader(train_set, batch_size=256, shuffle=True), DataLoader(test_set)
 
 # #############################################################################
 # Federating the pipeline with Flower
@@ -154,9 +149,19 @@ class DittoClient(fl.client.NumPyClient):
 
 
 def ditto_client_fn(cid: int) -> DittoClient:
-    print(f'Generating client {cid}')
     """Ditto client generator"""
-    train_loader, val_loader = load_data()
-    # train_loader = train_loaders[int(cid)]
-    # val_loader = val_loaders[int(cid)]
-    return DittoClient(cid, train_loader, val_loader, 1, 1)
+    train_loader = DataLoader(
+        FEMNIST(client=cid, split='train', transform=ToTensor()),
+        batch_size=32,
+        shuffle=True,
+        drop_last=True
+    )
+
+    val_loader = DataLoader(
+        FEMNIST(client=cid, split='test', transform=ToTensor()),
+        batch_size=32,
+        shuffle=False,
+        drop_last=False
+    )
+
+    return DittoClient(cid, train_loader, val_loader, 1, 100)
