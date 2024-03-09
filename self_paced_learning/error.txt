@@ -12,6 +12,9 @@ average the thresholds
 - also make it do loss calculations in 1 pass not twice
 
 ---------------------------------------------
+march_7 notes:
+- my code is dying, im not sure why; had to revert to the original to make it work, it may be a problem with neptune
+
 
 feb_28 notes:
 

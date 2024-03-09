@@ -1,6 +1,6 @@
 import flwr as fl
 
-from client import client_fn
+from client_transfer_teacher import client_fn
 from typing import Dict, List, Optional, Tuple, Union
 from flwr.server.client_proxy import ClientProxy
 from flwr.common import (

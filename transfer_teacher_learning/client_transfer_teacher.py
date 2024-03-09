@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
-
+import copy
 
 # from grace:
 import matplotlib.pyplot as plt
@@ -71,6 +71,8 @@ class Net(nn.Module):
 
 def train(net, trainloader, config, epochs):
     """Train the model on the training set."""
+
+    net_teacher = copy.deepcopy(net)
     criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
@@ -82,7 +84,7 @@ def train(net, trainloader, config, epochs):
             labels = labels.to(DEVICE)
             optimizer.zero_grad()
             
-            loss_indv = criterion(net(images), labels) # get individual losses
+            loss_indv = criterion(net_teacher(images), labels) # get individual losses
             # print(loss_indv)
             b = loss_indv >= config["loss_threshold"] # get indicies of which are larger than loss_threshold
             trash_indices = b.nonzero()
