@@ -2,7 +2,8 @@
 import copy
 import sys
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional
+from functools import partial
+from typing import Tuple, Dict, Optional, Callable
 
 import flwr as fl
 from flwr.common.typing import Config, NDArrays, Scalar
@@ -155,8 +156,7 @@ class DittoClient(fl.client.NumPyClient):
             }
 
 
-
-def ditto_client_fn(cid: int) -> DittoClient:
+def ditto_client_fn(cid: int, _lambda: float = 1.0, epochs_per_round: int = 25) -> DittoClient:
     """Ditto client generator"""
     train_loader = DataLoader(
         FEMNIST(client=cid, split='train', transform=ToTensor()),
@@ -172,4 +172,8 @@ def ditto_client_fn(cid: int) -> DittoClient:
         drop_last=False
     )
 
-    return DittoClient(cid, train_loader, val_loader, 1, 25)
+    return DittoClient(cid, train_loader, val_loader, _lambda, epochs_per_round)
+
+
+def ditto_client_fn_generator(_lambda: float = 1.0, epochs_per_round: int = 25) -> Callable[[int], DittoClient]:
+    return partial(ditto_client_fn, _lambda=_lambda, epochs_per_round=epochs_per_round)
