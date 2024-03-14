@@ -1,5 +1,6 @@
 # Modified from https://flower.ai/
 import copy
+import sys
 from collections import OrderedDict
 from typing import Tuple, Dict, Optional
 
@@ -113,11 +114,11 @@ class DittoClient(fl.client.NumPyClient):
         try:
             self.local_net.load_state_dict(torch.load(f'{CLIENT_MODEL_DIR}/{self.cid}.pth'))
         except Exception as e:  # this will always occur on the first round
-            print(f'Could not load local model for client {self.cid} due to {type(e).__name__}. Copying provided parameters to local model.')
+            print(f'Could not load local model for client {self.cid} due to {type(e).__name__}. Copying provided parameters to local model. This IS expected for a client\'s first round', file=sys.stderr)
             if parameters is not None:
                 self.set_parameters(self.local_net, parameters)
             else:
-                print('No parameters provided. Using new randomized local model.')
+                print('WARNING: No parameters provided to initialize local model. Using new randomized local model. This behavior is unexpected.', file=sys.stderr)
                 self.local_net = Net().to(DEVICE)
 
     def get_parameters(self, config: Config) -> NDArrays:

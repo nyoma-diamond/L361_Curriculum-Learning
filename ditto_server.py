@@ -17,6 +17,11 @@ from femnist import download_femnist
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
 class DittoStrategy(fl.server.strategy.FedAvg):
+    def __init__(self, print_progress=False):
+        super().__init__()
+        self.print_progress = print_progress
+
+
     def aggregate_evaluate(
             self,
             server_round: int,
@@ -39,8 +44,9 @@ class DittoStrategy(fl.server.strategy.FedAvg):
         # Aggregate and print custom metric
         avg_global_accuracy = sum(weighted_global_accuracies) / sum(examples)
         avg_local_accuracy = sum(weighted_local_accuracies) / sum(examples)
-        print(f'Round {server_round} global accuracy aggregated from client results: {avg_global_accuracy}')
-        print(f'Round {server_round} local accuracy aggregated from client results: {avg_local_accuracy}')
+        if self.print_progress:
+            print(f'Round {server_round} global accuracy aggregated from client results: {avg_global_accuracy}')
+            print(f'Round {server_round} local accuracy aggregated from client results: {avg_local_accuracy}')
 
 
         # Return aggregated loss and metrics (i.e., aggregated accuracy)
@@ -65,15 +71,15 @@ if __name__ == '__main__':
         shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
     os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
 
-    num_clients = 8
+    num_clients = 32
 
     # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     fl.simulation.start_simulation(
         num_clients=num_clients,
         client_fn=ditto_client_fn,
         config=fl.server.ServerConfig(num_rounds=25),
-        strategy=DittoStrategy(),
+        strategy=DittoStrategy(print_progress=True),
         client_resources={
-            'num_cpus': os.cpu_count()//num_clients
+            'num_cpus': max(os.cpu_count()//num_clients, 1)
         }
     )
