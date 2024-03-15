@@ -1,4 +1,6 @@
 import os
+import sys
+
 os.environ['RAY_DEDUP_LOGS'] = '0'
 
 import shutil
@@ -17,9 +19,9 @@ from femnist import download_femnist
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
 class DittoStrategy(fl.server.strategy.FedAvg):
-    def __init__(self, print_progress=False):
+    def __init__(self, log_accuracy=False):
         super().__init__()
-        self.print_progress = print_progress
+        self.log_accuracy = log_accuracy
 
 
     def aggregate_evaluate(
@@ -44,9 +46,9 @@ class DittoStrategy(fl.server.strategy.FedAvg):
         # Aggregate and print custom metric
         avg_global_accuracy = sum(weighted_global_accuracies) / sum(examples)
         avg_local_accuracy = sum(weighted_local_accuracies) / sum(examples)
-        if self.print_progress:
-            print(f'Round {server_round} global accuracy aggregated from client results: {avg_global_accuracy}')
-            print(f'Round {server_round} local accuracy aggregated from client results: {avg_local_accuracy}')
+        if self.log_accuracy:
+            print(f'Round {server_round} global accuracy aggregated from client results: {avg_global_accuracy}', file=sys.stderr)
+            print(f'Round {server_round} local accuracy aggregated from client results: {avg_local_accuracy}', file=sys.stderr)
 
 
         # Return aggregated loss and metrics (i.e., aggregated accuracy)
@@ -71,7 +73,7 @@ if __name__ == '__main__':
         shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
     os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
 
-    num_clients = 32
+    num_clients = 16
 
     # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     fl.simulation.start_simulation(
