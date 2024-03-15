@@ -80,7 +80,7 @@ if __name__ == '__main__':
         num_clients=num_clients,
         client_fn=ditto_client_fn,
         config=fl.server.ServerConfig(num_rounds=25),
-        strategy=DittoStrategy(print_progress=True),
+        strategy=DittoStrategy(log_accuracy=True),
         client_resources={
             'num_cpus': max(os.cpu_count()//num_clients, 1)
         }
