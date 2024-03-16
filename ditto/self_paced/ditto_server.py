@@ -17,7 +17,6 @@ from utils import *
 from femnist import download_femnist
 
 
-ROUNDS = 5
 EPOCHS = 10
 LOSS_THRESHOLD = 95
 TEST_NAME = 'test_percentile_hard'
@@ -110,7 +109,7 @@ if __name__ == '__main__':
     fl.simulation.start_simulation(
         num_clients=num_clients,
         client_fn=ditto_client_fn,
-        config=fl.server.ServerConfig(num_rounds=ROUNDS),
+        config=fl.server.ServerConfig(num_rounds=5),
         strategy=DittoStrategy(log_accuracy=True, on_fit_config_fn=fit_config),
         client_resources={
             'num_cpus': max(os.cpu_count()//num_clients, 1)
