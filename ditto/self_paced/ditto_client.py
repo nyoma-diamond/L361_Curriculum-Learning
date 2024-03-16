@@ -1,13 +1,11 @@
 # Modified from https://flower.ai/
 import sys
 from collections import OrderedDict
-from functools import partial
-from typing import Tuple, Dict, Optional, Callable
+from typing import Tuple, Dict, Optional
 import warnings
 
 import flwr as fl
 from flwr.common.typing import Config, NDArrays, Scalar
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
@@ -31,7 +29,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     local_net.train()
     global_net.train()
 
-    criterion = torch.nn.CrossEntropyLoss(reduction='none')
+    curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
 
     # TODO: config for optimizer parameters
@@ -48,13 +46,14 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
 
-            trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(global_net,  # TODO: global net or local net?
-                                                                                              criterion,
-                                                                                              images,
-                                                                                              labels,
-                                                                                              config['loss_threshold'],
-                                                                                              config['threshold_type'],  # change 0 for just flat num, 1, for percentile
-                                                                                              config['percentile_type'])  # change 'linear' for true percentile, 'normal_unbiased' for normal
+            trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
+                global_net,  # TODO: global net or local net?
+                curriculum_criterion,
+                images,
+                labels,
+                config['loss_threshold'],
+                config['threshold_type'],  # change 0 for just flat num, 1, for percentile
+                config['percentile_type'])  # change 'linear' for true percentile, 'normal_unbiased' for normal
 
             for loss in loss_indv:
               losses.append([loss.item(), loss_threshold, epoch, batch_i])

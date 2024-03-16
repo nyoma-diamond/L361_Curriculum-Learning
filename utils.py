@@ -1,11 +1,21 @@
 import os
+from enum import Enum
 
 import torch
 import numpy as np
 import pandas as pd
+from torch import nn
+from torch.nn.modules.loss import _Loss
+
 # import matplotlib.pyplot as plt
 
 CLIENT_MODEL_DIR = 'client_models'
+
+class ThresholdType(Enum):
+    DIRECT_VALUE = 0
+    PERCENTILE = 1
+    QUANTILE = 2
+
 
 def get_device(log=False):
     if torch.cuda.is_available():
@@ -22,30 +32,44 @@ def get_device(log=False):
         return torch.device('cpu')
 
 
-def curriculum_learning_loss(net, loss_func, images, labels, loss_threshold, loss_type, percentile_type):
+def curriculum_learning_loss(
+        net: nn.Module,
+        loss_func: _Loss,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        loss_threshold: float,
+        loss_type: ThresholdType = ThresholdType.PERCENTILE,
+        percentile_type: str = 'linear'
+    ):
     '''
 
     Inputs: 
     - net: neural network
-    - loss_func: torch.nn.CrossEntropyLoss(reduction='none')
-        - Make sure to set reduction to none!
+    - loss_func: loss function for computing threshold
+        - Make sure to that no reduction is performed!
     - Images: batch of images
     - labels: batch of labels
     - loss_threshold: depending on what you enter as loss type, this can be actual loss value
         or the percentile value you want to test for your scenario
     - DEVICE: CPU/GPU
     - loss_type: This has the following options:
-        - '0': use loss_threshold value as a singular number if a loss value is too high or low
-        - '1': use loss_threshold value as a percentile in a normal distribution curve to see 
-               if a loss value is too high or low 
+        - ThresholdType.PERCENTILE: use loss_threshold value as a singular number if a loss value is too high or low
+        - ThresholdType.DIRECT_VALUE: use loss_threshold value as a percentile in a normal distribution curve to see
+                                      if a loss value is too high or low
     - percentile_type: check out this link for more info: https://numpy.org/doc/stable/reference/generated/numpy.percentile.html
-        - 'Linear': true percentile
+        - 'linear': true percentile
         - 'normal_unbiased': sampling from a normal distribution curve
     '''
+    assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
+
     loss_indv = loss_func(net(images), labels)  # get individual losses
 
-    if loss_type == 1:
-        loss_threshold = np.percentile(loss_indv.data.cpu().numpy(), loss_threshold, method=percentile_type)
+    match loss_type:
+        case ThresholdType.PERCENTILE:
+            loss_threshold = np.percentile(loss_indv.data.cpu().numpy(), loss_threshold, method=percentile_type)
+        case ThresholdType.QUANTILE:
+            loss_threshold = np.quantile(loss_indv.data.cpu().numpy(), loss_threshold, method=percentile_type)
+
 
     # print(loss_indv)
     b = loss_indv >= loss_threshold  # get indicies of which are larger than loss_threshold
