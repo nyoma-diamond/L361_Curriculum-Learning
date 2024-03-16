@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore', category=UserWarning)
 DEVICE = get_device()
 
 def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, config: dict, cid: int):
-    '''Train the model on the training set.'''
+    """Train the model on the training set."""
     if type(local_net) is not type(global_net):
         raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
 
@@ -74,7 +74,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
         save_data(losses, config['test_name'], cid)
 
 def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
-    '''Validate the model on the test set.'''
+    """Validate the model on the test set."""
     net.eval()
 
     criterion = torch.nn.CrossEntropyLoss()
@@ -158,7 +158,7 @@ class DittoClient(fl.client.NumPyClient):
 
 
 def ditto_client_fn(cid: int) -> DittoClient:
-    '''Ditto client generator'''
+    """Ditto client generator"""
     train_loader = DataLoader(
         FemnistDataset(client=cid, split='train', transform=ToTensor()),
         batch_size=32,

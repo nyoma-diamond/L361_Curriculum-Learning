@@ -28,11 +28,12 @@ LAMBDA = 1.0
 
 # TODO: work on this fit_config function for more specialized cases
 def fit_config(server_round: int):
-    '''Return training configuration dict for each round.
+    """
+    Return training configuration dict for each round.
 
     Perform two rounds of training with one local epoch, increase to two local
     epochs afterwards.
-    '''
+    """
     config = {
         'server_round': server_round,           # The current round of federated learning
         'local_epochs': EPOCHS,                 # total epochs
@@ -60,7 +61,7 @@ class DittoStrategy(fl.server.strategy.FedAvg):
             results: List[Tuple[ClientProxy, EvaluateRes]],
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[float], Dict[str, Scalar]]:
-        '''Aggregate evaluation accuracy using weighted average.'''
+        """Aggregate evaluation accuracy using weighted average."""
 
         if not results:
             return None, {}
