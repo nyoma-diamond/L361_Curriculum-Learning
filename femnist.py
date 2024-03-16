@@ -35,7 +35,7 @@ def download_femnist():
         print('FEMNIST dataset extracted in ./femnist/data')
 
 
-class FEMNIST_Dataset(Dataset):
+class FemnistDataset(Dataset):
     """Class to load the FEMNIST dataset."""
 
     def __init__(
@@ -136,7 +136,7 @@ class FEMNIST_Dataset(Dataset):
                 torch.save(partition, preprocessed_path)
                 return partition
 
-class FEMNIST_Net(nn.Module):
+class FemnistNet(nn.Module):
     """Simple CNN model for FEMNIST."""
 
     def __init__(self) -> None:

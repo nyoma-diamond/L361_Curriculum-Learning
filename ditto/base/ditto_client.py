@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
 from utils import *
-from femnist import FEMNIST_Dataset, FEMNIST_Net
+from femnist import FemnistDataset, FemnistNet
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -81,8 +81,8 @@ class DittoClient(fl.client.NumPyClient):
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        self.local_net = FEMNIST_Net().to(DEVICE)
-        self.global_net = FEMNIST_Net().to(DEVICE)
+        self.local_net = FemnistNet().to(DEVICE)
+        self.global_net = FemnistNet().to(DEVICE)
 
         # TODO: these may be altered via `config` during operation
         self._lambda = _lambda
@@ -100,7 +100,7 @@ class DittoClient(fl.client.NumPyClient):
                 self.set_parameters(self.local_net, parameters)
             else:
                 print('WARNING: No parameters provided to initialize local model. Using new randomized local model. This behavior is unexpected.', file=sys.stderr)
-                self.local_net = FEMNIST_Net().to(DEVICE)
+                self.local_net = FemnistNet().to(DEVICE)
 
     def get_parameters(self, config: Config) -> NDArrays:
         return [val.cpu().numpy() for _, val in self.global_net.state_dict().items()]
@@ -139,14 +139,14 @@ class DittoClient(fl.client.NumPyClient):
 def ditto_client_fn(cid: int, _lambda: float = 1.0, epochs_per_round: int = 25) -> DittoClient:
     """Ditto client generator"""
     train_loader = DataLoader(
-        FEMNIST_Dataset(client=cid, split='train', transform=ToTensor()),
+        FemnistDataset(client=cid, split='train', transform=ToTensor()),
         batch_size=32,
         shuffle=True,
         drop_last=True
     )
 
     val_loader = DataLoader(
-        FEMNIST_Dataset(client=cid, split='test', transform=ToTensor()),
+        FemnistDataset(client=cid, split='test', transform=ToTensor()),
         batch_size=32,
         shuffle=False,
         drop_last=False
