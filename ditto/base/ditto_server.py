@@ -11,10 +11,9 @@ from flwr.server.client_proxy import ClientProxy
 
 from typing import List, Tuple, Union, Optional, Dict
 
-from ditto_client import ditto_client_fn
-
-from utils import *
+from ditto_client import ditto_client_fn, ditto_client_fn_generator
 from femnist import download_femnist
+from utils import *
 
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
@@ -78,7 +77,7 @@ if __name__ == '__main__':
     # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     fl.simulation.start_simulation(
         num_clients=num_clients,
-        client_fn=ditto_client_fn,
+        client_fn=ditto_client_fn_generator(_lambda=1.0, epochs_per_round=25),
         config=fl.server.ServerConfig(num_rounds=25),
         strategy=DittoStrategy(log_accuracy=True),
         client_resources={

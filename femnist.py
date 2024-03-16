@@ -4,12 +4,17 @@ import csv
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable, Sequence
-import torch
-from PIL import Image
-from PIL.Image import Image as ImageType
-from torch.utils.data import Dataset
+
 import subprocess
 import gdown
+
+from PIL import Image
+from PIL.Image import Image as ImageType
+
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import Dataset
 
 def download_femnist():
     """
@@ -30,7 +35,7 @@ def download_femnist():
         print('FEMNIST dataset extracted in ./femnist/data')
 
 
-class FEMNIST(Dataset):
+class FEMNIST_Dataset(Dataset):
     """Class to load the FEMNIST dataset."""
 
     def __init__(
@@ -130,3 +135,24 @@ class FEMNIST(Dataset):
                 # Save for future loading
                 torch.save(partition, preprocessed_path)
                 return partition
+
+class FEMNIST_Net(nn.Module):
+    """Simple CNN model for FEMNIST."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(256, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 62)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
