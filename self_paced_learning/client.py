@@ -13,7 +13,7 @@ from torchvision.datasets import CIFAR10
 # from grace:
 import matplotlib.pyplot as plt
 import numpy as np
-from statistics import mean,stdev
+from utils import curriculum_learning_loss, save_data, show_failed_imgs
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -32,22 +32,6 @@ else:
     print ("MPS device not found, using CPU")
     DEVICE = torch.device("cpu")
 
-def show_failed_imgs(new_images,new_labels,losses_failed):
-    count = 0
-    print(len(new_images))
-    for images in new_images:
-        if count > 3:
-            break
-        count +=1 
-        # take first image
-        image = images[0].to(DEVICE)
-        # Reshape the image
-        image = image.reshape(3,32,32).to(DEVICE)
-        # Transpose the image
-        image = image.permute(1, 2, 0).to(DEVICE)
-        # Display the image
-        plt.imshow(image.cpu())
-        plt.show()
 
 class Net(nn.Module):
   """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
@@ -69,31 +53,50 @@ class Net(nn.Module):
     x = F.relu(self.fc2(x))
     return self.fc3(x)
 
-def train(net, trainloader, config, epochs):
+def train(net, trainloader, config, cid):
     """Train the model on the training set."""
-    criterion = torch.nn.CrossEntropyLoss(reduction='none')
+
+    criterion = torch.nn.CrossEntropyLoss(reduction='none') # @ N'yoma make sure to set reduction to none
     criterion_mean = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-    for k in range(epochs):
-        # count = 0
-        print("Epoch: "+str(k))
+
+    losses = [] # @ N'yoma add things you want to save in here
+
+    for epoch in range(config['local_epochs']):
+        batch_count = 0       # @ N'yoma add the batch count for saving files
+        print("Epoch: "+str(epoch))
+
         for images, labels in trainloader:
-            images = images.to(DEVICE)
-            labels = labels.to(DEVICE)
             optimizer.zero_grad()
+
+            images = images.to(DEVICE)      # @ N'yoma make sure to set images/labels to the device you're using
+            labels = labels.to(DEVICE)
+
+            trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(net, 
+                                                             criterion, 
+                                                             images, 
+                                                             labels, 
+                                                             config["loss_threshold"], 
+                                                             DEVICE,
+                                                             config["threshold_type"], # change 0 for just flat num, 1, for percentile
+                                                             config["percentile_type"]) # change "linear" for true percentile, "normal_unbiased" for normal
             
-            loss_indv = criterion(net(images), labels) # get individual losses
-            # print(loss_indv)
-            b = loss_indv >= config["loss_threshold"] # get indicies of which are larger than loss_threshold
-            trash_indices = b.nonzero()
-            d = loss_indv < config["loss_threshold"] # get indicies of which are larger than loss_threshold
-            keep_indices = d.nonzero()
-            # print(keep_indices)
-            # print(count)
-            # show_failed_imgs(images[trash_indices],labels[trash_indices],loss_indv[trash_indices])
+            # @ N'yoma - saving data here, add more things you want to save if u need it
+            for loss in loss_indv:
+              losses.append([loss.item(),loss_threshold,epoch,batch_count])
+
+            # TODO:
+            # show_failed_imgs(images[trash_indices],
+            #                  labels[trash_indices],
+            #                  loss_indv[trash_indices], 
+            #                  DEVICE,
+            #                  batch_count)
+            
+            
+            batch_count += 1
             criterion_mean(net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()]).backward()
-            # count += 1
             optimizer.step()
+    save_data(losses, config['test_name'], cid)
 
 
 def test(net, testloader):
@@ -145,7 +148,7 @@ class FlowerClient(fl.client.NumPyClient):
 
   def fit(self, parameters, config):
     self.set_parameters(parameters)
-    train(self.net, self.trainloader, config, config['local_epochs'])
+    train(self.net, self.trainloader, config, self.cid)
     return self.get_parameters(config={}), len(self.trainloader.dataset), {}
 
   def evaluate(self, parameters, config):

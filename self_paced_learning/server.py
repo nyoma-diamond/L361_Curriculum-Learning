@@ -10,9 +10,11 @@ from flwr.common import (
 )
 
 ROUND = 2
-EPOCHS = 3
-LOSS_THRESHOLD = 3
-
+EPOCHS = 2
+LOSS_THRESHOLD = 95
+TEST_NAME = "test_percentile_hard"
+THRESHOLD_TYPE = 1
+PERCENTILE_TYPE = "linear"
 
 # TODO: work on this fit_config function for more specialized cases
 def fit_config(server_round: int):
@@ -22,10 +24,14 @@ def fit_config(server_round: int):
     epochs afterwards.
     """
     config = {
-        "server_round": server_round,  # The current round of federated learning
-        "local_epochs": EPOCHS, #if server_round < 2 else 2,  #
-        "loss_threshold": LOSS_THRESHOLD, #if server_round < 2 else 2,  #
-        "Total_Rounds": ROUND
+        "server_round": server_round,           # The current round of federated learning
+        "local_epochs": EPOCHS,                 # total epochs
+        "loss_threshold": LOSS_THRESHOLD,       # depending on what you enter as loss type, this can be actual loss value
+                                                # or the percentile value you want to test for your scenario
+        "Total_Rounds": ROUND,                  # total # of rounds
+        "test_name": TEST_NAME,                 # put a meaningful test name
+        "threshold_type": THRESHOLD_TYPE,       # change 0 for just flat num, 1, for percentile
+        "percentile_type": PERCENTILE_TYPE      # change "linear" for true percentile, "normal_unbiased" for normal, put whatever for flat_num
     }
     return config
 

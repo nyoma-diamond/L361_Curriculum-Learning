@@ -166,3 +166,4 @@ data/
 *.DS_store
 *.neptune
 self_paced_learning/bug
+results/
