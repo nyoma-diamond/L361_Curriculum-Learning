@@ -1,7 +1,8 @@
 # Modified from https://flower.ai/
 import sys
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional
+from functools import partial
+from typing import Tuple, Dict, Optional, Callable
 import warnings
 
 import flwr as fl
@@ -101,13 +102,16 @@ class DittoClient(fl.client.NumPyClient):
     def __init__(self,
                  cid: int,
                  train_loader: DataLoader,
-                 val_loader: DataLoader):
+                 val_loader: DataLoader,
+                 _lambda: float):
         self.cid = cid
         self.train_loader = train_loader
         self.val_loader = val_loader
 
         self.local_net = FemnistNet().to(DEVICE)
         self.global_net = FemnistNet().to(DEVICE)
+
+        self._lambda = _lambda
 
     def save_local_model(self):
         torch.save(self.local_net.state_dict(), f'{CLIENT_MODEL_DIR}/{self.cid}.pth')
@@ -132,6 +136,11 @@ class DittoClient(fl.client.NumPyClient):
         net.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Dict[str, Scalar]]:
+        if 'lambda' in config and config['lambda'] is not None:
+            self._lambda = config['lambda']
+        else:
+            config['lambda'] = self._lambda
+
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
@@ -142,6 +151,11 @@ class DittoClient(fl.client.NumPyClient):
         return self.get_parameters(config={}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Dict[str, Scalar]]:
+        if 'lambda' in config and config['lambda'] is not None:
+            self._lambda = config['lambda']
+        else:
+            config['lambda'] = self._lambda
+
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
@@ -157,7 +171,7 @@ class DittoClient(fl.client.NumPyClient):
             }
 
 
-def ditto_client_fn(cid: int) -> DittoClient:
+def ditto_client_fn(cid: int, _lambda: float = 1.0) -> DittoClient:
     """Ditto client generator"""
     train_loader = DataLoader(
         FemnistDataset(client=cid, split='train', transform=ToTensor()),
@@ -173,4 +187,7 @@ def ditto_client_fn(cid: int) -> DittoClient:
         drop_last=False
     )
 
-    return DittoClient(cid, train_loader, val_loader)
+    return DittoClient(cid, train_loader, val_loader, _lambda=_lambda)
+
+def ditto_client_fn_generator(_lambda: float = 1.0) -> Callable[[int], DittoClient]:
+    return partial(ditto_client_fn, _lambda=_lambda)

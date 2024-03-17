@@ -11,7 +11,7 @@ from flwr.server.client_proxy import ClientProxy
 
 from typing import List, Tuple, Union, Optional, Dict
 
-from ditto_client import ditto_client_fn
+from ditto_client import ditto_client_fn, ditto_client_fn_generator
 
 from utils import *
 from femnist import download_femnist
@@ -22,7 +22,6 @@ LOSS_THRESHOLD = 95
 TEST_NAME = 'test_percentile_hard'
 THRESHOLD_TYPE = ThresholdType.PERCENTILE
 PERCENTILE_TYPE = 'linear'
-LAMBDA = 1.0
 
 
 # TODO: work on this fit_config function for more specialized cases
@@ -41,7 +40,7 @@ def fit_config(server_round: int):
         'test_name': TEST_NAME,                 # put a meaningful test name
         'threshold_type': THRESHOLD_TYPE,       # change 0 for just flat num, 1, for percentile
         'percentile_type': PERCENTILE_TYPE,     # change 'linear' for true percentile, 'normal_unbiased' for normal, put whatever for flat_num
-        'lambda': LAMBDA                        # Ditto lambda value
+        'lambda': None                          # Ditto lambda value
     }
     return config
 
@@ -108,7 +107,7 @@ if __name__ == '__main__':
     # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     fl.simulation.start_simulation(
         num_clients=num_clients,
-        client_fn=ditto_client_fn,
+        client_fn=ditto_client_fn_generator(_lambda=1.0),
         config=fl.server.ServerConfig(num_rounds=5),
         strategy=DittoStrategy(log_accuracy=True, on_fit_config_fn=fit_config),
         client_resources={
