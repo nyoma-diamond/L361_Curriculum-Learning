@@ -14,6 +14,7 @@ from torchvision.datasets import CIFAR10
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import curriculum_learning_loss, calculate_threshold, save_data, show_failed_imgs
+from femnist import FemnistDataset
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -24,7 +25,7 @@ from utils import curriculum_learning_loss, calculate_threshold, save_data, show
 warnings.filterwarnings("ignore", category=UserWarning)
 if torch.cuda.is_available():
     print ("GPU CUDA")
-    DEVICE = torch.device("cuda")
+    DEVICE = torch.device("cpu")
 elif torch.backends.mps.is_available():
     print ("MPS device")
     DEVICE = torch.device("cpu")
@@ -33,28 +34,31 @@ else:
     DEVICE = torch.device("cpu")
 
 
-class Net(nn.Module):
-  """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
+class FemnistNet(nn.Module):
+    """Simple CNN model for FEMNIST."""
 
-  def __init__(self) -> None:
-    super(Net, self).__init__()
-    self.conv1 = nn.Conv2d(3, 6, 5)
-    self.pool = nn.MaxPool2d(2, 2)
-    self.conv2 = nn.Conv2d(6, 16, 5)
-    self.fc1 = nn.Linear(16 * 5 * 5, 120)
-    self.fc2 = nn.Linear(120, 84)
-    self.fc3 = nn.Linear(84, 10)
+    def __init__(self) -> None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(256, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 62)
 
-  def forward(self, x: torch.Tensor) -> torch.Tensor:
-    x = self.pool(F.relu(self.conv1(x)))
-    x = self.pool(F.relu(self.conv2(x)))
-    x = x.view(-1, 16 * 5 * 5)
-    x = F.relu(self.fc1(x))
-    x = F.relu(self.fc2(x))
-    return self.fc3(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 def train(net, trainloader, config, cid):
     """Train the model on the training set."""
+
+    net.train() 
 
     criterion = torch.nn.CrossEntropyLoss(reduction='none') # @ N'yoma make sure to set reduction to none
     criterion_mean = torch.nn.CrossEntropyLoss()
@@ -106,6 +110,8 @@ def train(net, trainloader, config, cid):
 
 def test(net, testloader):
   """Validate the model on the test set."""
+  net.eval()
+
   criterion = torch.nn.CrossEntropyLoss()
   correct, total, loss = 0, 0, 0.0
   with torch.no_grad():
@@ -113,17 +119,29 @@ def test(net, testloader):
       outputs = net(images.to(DEVICE))
       loss += criterion(outputs, labels.to(DEVICE)).item()
       total += labels.size(0)
-      correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-      #correct += (torch.max(outputs.data, 1))[1] == labels.to(DEVICE).sum().item() # add .toDevice to labels if using GPU
+      # correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+      correct += (torch.max(outputs.data, 1)[1] == labels.to(DEVICE)).sum().item() # add .toDevice to labels if using GPU
   return loss / len(testloader.dataset), correct / total
 
-def load_data():
+def load_data(cid):
   """Load CIFAR-10 (training and test set)."""
   trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-  
-  trainset = CIFAR10("./data", train=True, download=True, transform=trf)
-  testset = CIFAR10("./data", train=False, download=True, transform=trf)
-  return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+  train_loader = DataLoader(
+        FemnistDataset(client=cid, split='train', transform=ToTensor()),
+        batch_size=32,
+        shuffle=True,
+        drop_last=True
+    )
+
+  val_loader = DataLoader(
+        FemnistDataset(client=cid, split='test', transform=ToTensor()),
+        batch_size=32,
+        shuffle=False,
+        drop_last=False
+  )
+  # trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+  # testset = CIFAR10("./data", train=False, download=True, transform=trf)
+  return train_loader, val_loader #DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
 
 # #############################################################################
 # Federating the pipeline with Flower
@@ -166,6 +184,8 @@ class FlowerClient(fl.client.NumPyClient):
 def client_fn(cid: int) -> FlowerClient:
     # Load model and data (simple CNN, CIFAR-10)
     print("MADE CLIENT")
-    net = Net().to(DEVICE)
-    trainloader, testloader = load_data()
+    net = FemnistNet().to(DEVICE)
+    trainloader, testloader = load_data(cid)
+    # train_loader = train_loaders[int(cid)]
+    # val_loader = val_loaders[int(cid)]
     return FlowerClient(cid, net, trainloader, testloader).to_client()
