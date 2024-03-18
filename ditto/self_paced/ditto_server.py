@@ -17,7 +17,7 @@ from utils import *
 from femnist import download_femnist
 
 
-EPOCHS = 10
+EPOCHS = 25
 LOSS_THRESHOLD = 95
 TEST_NAME = 'test_percentile_hard'
 THRESHOLD_TYPE = ThresholdType.PERCENTILE

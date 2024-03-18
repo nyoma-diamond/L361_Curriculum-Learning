@@ -57,7 +57,7 @@ class FemnistDataset(Dataset):
         """
         self.data_dir = Path('./femnist/data')
         self.client = client
-        self.mapping_dir = Path('femnist/client_data_mappings/fed_natural')
+        self.mapping_dir = Path('./femnist/client_data_mappings/fed_natural')
         self.split = split
 
         self.data: Sequence[tuple[str, int]] = self._load_dataset()
