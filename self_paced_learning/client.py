@@ -13,7 +13,7 @@ from torchvision.datasets import CIFAR10
 # from grace:
 import matplotlib.pyplot as plt
 import numpy as np
-from utils import curriculum_learning_loss, save_data, show_failed_imgs
+from utils import curriculum_learning_loss, calculate_threshold, save_data, show_failed_imgs
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
@@ -27,7 +27,7 @@ if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
 elif torch.backends.mps.is_available():
     print ("MPS device")
-    DEVICE = torch.device("mps")
+    DEVICE = torch.device("cpu")
 else:
     print ("MPS device not found, using CPU")
     DEVICE = torch.device("cpu")
@@ -61,11 +61,22 @@ def train(net, trainloader, config, cid):
     optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     losses = [] # @ N'yoma add things you want to save in here
+    images_failed = []
+
+    loss_threshold = calculate_threshold(net, 
+                            criterion, 
+                            trainloader, 
+                            config["loss_threshold"], 
+                            DEVICE,
+                            config["threshold_type"], # change 0 for just flat num, 1, for percentile
+                            config["percentile_type"]) # change "linear" for true percentile, "normal_unbiased" for normal
+
 
     for epoch in range(config['local_epochs']):
         batch_count = 0       # @ N'yoma add the batch count for saving files
         print("Epoch: "+str(epoch))
 
+        
         for images, labels in trainloader:
             optimizer.zero_grad()
 
@@ -76,27 +87,21 @@ def train(net, trainloader, config, cid):
                                                              criterion, 
                                                              images, 
                                                              labels, 
-                                                             config["loss_threshold"], 
-                                                             DEVICE,
-                                                             config["threshold_type"], # change 0 for just flat num, 1, for percentile
-                                                             config["percentile_type"]) # change "linear" for true percentile, "normal_unbiased" for normal
+                                                             loss_threshold, 
+                                                             DEVICE) 
             
             # @ N'yoma - saving data here, add more things you want to save if u need it
             for loss in loss_indv:
               losses.append([loss.item(),loss_threshold,epoch,batch_count])
 
-            # TODO:
-            # show_failed_imgs(images[trash_indices],
-            #                  labels[trash_indices],
-            #                  loss_indv[trash_indices], 
-            #                  DEVICE,
-            #                  batch_count)
-            
-            
+            for image,label, loss_ind in zip(images[trash_indices], labels[trash_indices], loss_indv[trash_indices]):
+              images_failed.append([image,label,loss_ind, loss_threshold])
+                        
             batch_count += 1
-            criterion_mean(net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()]).backward()
+            criterion_mean(net(images[keep_indices.flatten(),:,:,:].to(DEVICE)), labels[keep_indices.flatten()].to(DEVICE)).backward()
             optimizer.step()
-    save_data(losses, config['test_name'], cid)
+    
+    save_data(losses, images_failed, config['test_name'], cid, DEVICE)
 
 
 def test(net, testloader):
@@ -114,6 +119,7 @@ def test(net, testloader):
 def load_data():
   """Load CIFAR-10 (training and test set)."""
   trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+  
   trainset = CIFAR10("./data", train=True, download=True, transform=trf)
   testset = CIFAR10("./data", train=False, download=True, transform=trf)
   return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)

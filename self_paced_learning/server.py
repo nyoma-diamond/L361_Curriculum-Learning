@@ -1,5 +1,6 @@
 import flwr as fl
-
+import ray
+import gc
 from client import client_fn
 from typing import Dict, List, Optional, Tuple, Union
 from flwr.server.client_proxy import ClientProxy
@@ -8,32 +9,20 @@ from flwr.common import (
     FitRes,
     Scalar,
 )
+import numpy as np
+import pandas as pd
 
-ROUND = 2
-EPOCHS = 2
-LOSS_THRESHOLD = 95
-TEST_NAME = "test_percentile_hard"
-THRESHOLD_TYPE = 1
+
+TEST = "sp"
+ROUND = 100
+EPOCHS = 1
+NUM_CLIENTS = 8
+THRESHOLD_TYPE = 0
 PERCENTILE_TYPE = "linear"
+LOSS_THRESHOLD = 1
+test_lambda = [2,2.25,2.5,2.75,3,4,5]
 
-# TODO: work on this fit_config function for more specialized cases
-def fit_config(server_round: int):
-    """Return training configuration dict for each round.
 
-    Perform two rounds of training with one local epoch, increase to two local
-    epochs afterwards.
-    """
-    config = {
-        "server_round": server_round,           # The current round of federated learning
-        "local_epochs": EPOCHS,                 # total epochs
-        "loss_threshold": LOSS_THRESHOLD,       # depending on what you enter as loss type, this can be actual loss value
-                                                # or the percentile value you want to test for your scenario
-        "Total_Rounds": ROUND,                  # total # of rounds
-        "test_name": TEST_NAME,                 # put a meaningful test name
-        "threshold_type": THRESHOLD_TYPE,       # change 0 for just flat num, 1, for percentile
-        "percentile_type": PERCENTILE_TYPE      # change "linear" for true percentile, "normal_unbiased" for normal, put whatever for flat_num
-    }
-    return config
 
 
 class AggregateCustomMetricStrategy(fl.server.strategy.FedAvg):
@@ -66,15 +55,49 @@ class AggregateCustomMetricStrategy(fl.server.strategy.FedAvg):
 #     on_fit_config_fn=fit_config        #fit_config,  # For future config function based changes
 # )
 
+
+
+results = {}
+
+
+for _lambda in test_lambda:
+    print('lambda =', _lambda)
+    t_name = TEST +"_r"+ str(ROUND)+ "_e" + str(EPOCHS) + "_c" + str(NUM_CLIENTS) + "_l" +str(THRESHOLD_TYPE) + "_pt-" + str(PERCENTILE_TYPE) + "_lt" + str(_lambda)
     
-# Create strategy and run server
-SelfPaced = AggregateCustomMetricStrategy(
-    on_fit_config_fn=fit_config,        #fit_config,  # For future config function based changes
-)
-# https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-fl.simulation.start_simulation(
-    num_clients=3,
-    client_fn=client_fn,
-    config=fl.server.ServerConfig(num_rounds=ROUND),
-    strategy=SelfPaced
-)
+    # TODO: work on this fit_config function for more specialized cases
+    def fit_config(server_round: int):
+        """Return training configuration dict for each round.
+
+        Perform two rounds of training with one local epoch, increase to two local
+        epochs afterwards.
+        """
+        config = {
+            "server_round": server_round,           # The current round of federated learning
+            "local_epochs": EPOCHS,                 # total epochs
+            "loss_threshold": _lambda,       # depending on what you enter as loss type, this can be actual loss value
+                                                    # or the percentile value you want to test for your scenario
+            "Total_Rounds": ROUND,                  # total # of rounds
+            "test_name": t_name,                 # put a meaningful test name
+            "threshold_type": THRESHOLD_TYPE,       # change 0 for just flat num, 1, for percentile
+            "percentile_type": PERCENTILE_TYPE      # change "linear" for true percentile, "normal_unbiased" for normal, put whatever for flat_num
+        }
+        return config
+
+    # Create strategy and run server
+    SelfPaced = AggregateCustomMetricStrategy(
+        on_fit_config_fn=fit_config,        #fit_config,  # For future config function based changes
+    )
+
+    results[_lambda] = fl.simulation.start_simulation(
+        num_clients=NUM_CLIENTS,
+        client_fn=client_fn,
+        config=fl.server.ServerConfig(num_rounds=ROUND),
+        strategy=SelfPaced
+    )
+    losses_distributed = pd.DataFrame.from_dict({_lambda: [acc for _, acc in results[_lambda].losses_distributed] for _lambda in results.keys()})
+    accuracies_distributed = pd.DataFrame.from_dict({_lambda: [acc for _, acc in results[_lambda].metrics_distributed['accuracy']] for _lambda in results.keys()})
+    losses_distributed.to_csv('results/'+t_name+"/losses_distributed.csv")
+    accuracies_distributed.to_csv('results/'+t_name+"/accuracies_distributed.csv")
+    ray.shutdown()
+    gc.collect()
+
