@@ -91,6 +91,17 @@ def save_data(losses, images_failed, test_name, cid, DEVICE):
 
     # for [image_1,label,loss_ind, loss_threshold] in images_failed:
     #     file_name = folder_name+"/round_"+str(round)+"/imgs_failed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+".jpg"   
+    #     # take first image
+    #     image = image_1[0].to(DEVICE)
+    #     # Reshape the image
+    #     image = image.reshape(3,32,32).to(DEVICE)
+    #     # Transpose the image
+    #     image = image.permute(1, 2, 0).to(DEVICE)
+    #     # Display the image
+
+    #     plt.imshow(image.cpu())
+    #     plt.show()
+        # imwrite(file_name, image.cpu())
 
     #     s=image_1.cpu()
     #     s = s.reshape(3,32,32)

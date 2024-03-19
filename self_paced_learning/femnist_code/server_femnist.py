@@ -13,14 +13,14 @@ import numpy as np
 import pandas as pd
 
 
-TEST = "fem_sp"
+TEST = "fem_sp_imgs_per_e"
 ROUND = 50
-EPOCHS = 35
+EPOCHS = 25
 NUM_CLIENTS = 8
 THRESHOLD_TYPE = 1
 PERCENTILE_TYPE = "linear"
-LOSS_THRESHOLD = 1
-test_lambda = [25,50,65,75,90,95]
+LOSS_THRESHOLD = 4
+test_lambda = [99.5]
 
 
 

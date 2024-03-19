@@ -66,6 +66,7 @@ def train(net, trainloader, config, cid):
 
     losses = [] # @ N'yoma add things you want to save in here
     images_failed = []
+    images_passed = []
 
     loss_threshold = calculate_threshold(net, 
                             criterion, 
@@ -95,17 +96,19 @@ def train(net, trainloader, config, cid):
                                                              DEVICE) 
             
             # @ N'yoma - saving data here, add more things you want to save if u need it
-            for loss in loss_indv:
-              losses.append([loss.item(),loss_threshold,epoch,batch_count])
+            for loss,lab in zip(loss_indv,labels):
+              losses.append([loss.item(),loss_threshold,epoch,batch_count,lab.item()])
 
             for image,label, loss_ind in zip(images[trash_indices], labels[trash_indices], loss_indv[trash_indices]):
-              images_failed.append([image,label,loss_ind, loss_threshold])
+              images_failed.append([image,label,loss_ind, loss_threshold, epoch])
+            for image,label, loss_ind in zip(images[keep_indices], labels[keep_indices], loss_indv[keep_indices]):
+              images_passed.append([image,label,loss_ind, loss_threshold, epoch])
                         
             batch_count += 1
             criterion_mean(net(images[keep_indices.flatten(),:,:,:].to(DEVICE)), labels[keep_indices.flatten()].to(DEVICE)).backward()
             optimizer.step()
     
-    save_data(losses, images_failed, config['test_name'], cid, DEVICE)
+    save_data(losses, images_passed, images_failed, config['test_name'], cid, DEVICE)
 
 
 def test(net, testloader):
