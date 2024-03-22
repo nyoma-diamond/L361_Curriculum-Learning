@@ -1,7 +1,7 @@
 import flwr as fl
 import ray
 import gc
-from client import client_fn
+from client_femnist_tt import client_fn
 from typing import Dict, List, Optional, Tuple, Union
 from flwr.server.client_proxy import ClientProxy
 from flwr.common import (
@@ -13,14 +13,14 @@ import numpy as np
 import pandas as pd
 
 
-TEST = "sp"
-ROUND = 100
-EPOCHS = 1
+TEST = "fem_sp_imgs_per_e"
+ROUND = 50
+EPOCHS = 25
 NUM_CLIENTS = 8
-THRESHOLD_TYPE = 0
+THRESHOLD_TYPE = 1
 PERCENTILE_TYPE = "linear"
-LOSS_THRESHOLD = 1
-test_lambda = [2,2.25,2.5,2.75,3,4,5]
+LOSS_THRESHOLD = 4
+test_lambda = [99.5]
 
 
 
@@ -64,6 +64,7 @@ for _lambda in test_lambda:
     print('lambda =', _lambda)
     t_name = TEST +"_r"+ str(ROUND)+ "_e" + str(EPOCHS) + "_c" + str(NUM_CLIENTS) + "_l" +str(THRESHOLD_TYPE) + "_pt-" + str(PERCENTILE_TYPE) + "_lt" + str(_lambda)
     
+    results = {}
     # TODO: work on this fit_config function for more specialized cases
     def fit_config(server_round: int):
         """Return training configuration dict for each round.
@@ -90,6 +91,7 @@ for _lambda in test_lambda:
 
     results[_lambda] = fl.simulation.start_simulation(
         num_clients=NUM_CLIENTS,
+        clients_ids =["1","2","3","4","5","6","7","8"],
         client_fn=client_fn,
         config=fl.server.ServerConfig(num_rounds=ROUND),
         strategy=SelfPaced

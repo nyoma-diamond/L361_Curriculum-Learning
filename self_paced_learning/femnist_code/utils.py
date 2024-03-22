@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 from PIL import Image
+import torchvision
 # from torchvision.utils import save_image
 
 #TODO:
@@ -67,17 +68,19 @@ def curriculum_learning_loss(net, loss_func, images, labels, loss_threshold, DEV
     return trash_indices, keep_indices, loss_threshold, loss_indv
 
 #config['test_name']
-def save_data(losses, images_failed, test_name, cid, DEVICE):
+def save_data(losses, images_passed, images_failed, test_name, cid, DEVICE):
     folder_name = 'results/'+test_name+"/cid_"+str(cid)
     round = 0
     x = pd.DataFrame(losses, columns=["sample_loss",
                                       "loss_threshold_of_batch",
                                       "epoch",
-                                      "batch_count"])
+                                      "batch_count",
+                                      "labels"])
 
     if not os.path.exists(folder_name+"/round_0"):
         os.makedirs(folder_name+"/round_0")
         os.makedirs(folder_name+"/round_"+str(round)+"/imgs_failed")
+        os.makedirs(folder_name+"/round_"+str(round)+"/imgs_passed")
 
     else:
         s = os.listdir(folder_name)
@@ -87,28 +90,15 @@ def save_data(losses, images_failed, test_name, cid, DEVICE):
         if not os.path.exists(folder_name+"/round_"+str(round)):
             os.makedirs(folder_name+"/round_"+str(round))
             os.makedirs(folder_name+"/round_"+str(round)+"/imgs_failed")
+            os.makedirs(folder_name+"/round_"+str(round)+"/imgs_passed")
     x.to_csv(folder_name+"/round_"+str(round)+"/losses.csv")
 
-    # for [image_1,label,loss_ind, loss_threshold] in images_failed:
-    #     file_name = folder_name+"/round_"+str(round)+"/imgs_failed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+".jpg"   
-    #     # take first image
-    #     image = image_1[0].to(DEVICE)
-    #     # Reshape the image
-    #     image = image.reshape(3,32,32).to(DEVICE)
-    #     # Transpose the image
-    #     image = image.permute(1, 2, 0).to(DEVICE)
-    #     # Display the image
-
-    #     plt.imshow(image.cpu())
-    #     plt.show()
-        # imwrite(file_name, image.cpu())
-
-    #     s=image_1.cpu()
-    #     s = s.reshape(3,32,32)
-    #     s = s.permute(1, 2, 0)
-    #     s = s.numpy()
-    #     print(s.shape)
-    #     imwrite(file_name,s)
+    for [image_1,label,loss_ind, loss_threshold,epoch] in images_failed:
+        file_name = folder_name+"/round_"+str(round)+"/imgs_failed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"   
+        torchvision.utils.save_image(image_1, file_name)
+    for [image_1,label,loss_ind, loss_threshold,epoch] in images_passed:
+        file_name = folder_name+"/round_"+str(round)+"/imgs_passed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"   
+        torchvision.utils.save_image(image_1, file_name)
     #     # print(image_1)
     #     # tensor = image_1*255
     #     # tensor = np.array(tensor.cpu(), dtype=np.uint8)

@@ -174,3 +174,5 @@ client_models/
 *.neptune
 self_paced_learning/bug
 results/
+femnist/
+*.tar.gz
