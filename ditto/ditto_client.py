@@ -73,7 +73,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             local_optimizer.zero_grad()
 
             # Update local model
-            local_loss = criterion_mean(local_net(images[keep_indices.flatten()]), labels[keep_indices.flatten()])
+            local_loss = criterion_mean(local_net(images), labels)
             local_loss.backward()
             for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
                 local_param.grad += config['lambda'] * (local_param - global_param)
@@ -81,7 +81,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
             # Update global model
             global_optimizer.zero_grad()
-            global_loss = criterion_mean(global_net(images[keep_indices.flatten()]), labels[keep_indices.flatten()])
+            global_loss = criterion_mean(global_net(images), labels)
             global_loss.backward()
             global_optimizer.step()
 
