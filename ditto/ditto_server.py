@@ -16,7 +16,6 @@ from utils import ThresholdType, CurriculumType
 DEFAULT_CONFIG = {
     'local_epochs': 25,                                     # total epochs
     'loss_threshold': 0.95,                                 # depending on what you enter as loss type, this can be actual loss value or the percentile value you want to test for your scenario
-    # 'test_name': None,                                    # put a meaningful test name for saving training results. Does nothing if unset or set to None
     'threshold_type': ThresholdType.QUANTILE,               # change 0 for just flat num, 1, for percentile
     'percentile_type': 'linear',                            # change 'linear' for true percentile, 'normal_unbiased' for normal, put whatever for flat_num
     'curriculum_type': CurriculumType.TRANSFER_TEACHER,     # type of curriculum learning to use
