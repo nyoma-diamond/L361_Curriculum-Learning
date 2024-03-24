@@ -13,8 +13,8 @@ from torchvision.datasets import CIFAR10
 # from grace:
 import matplotlib.pyplot as plt
 import numpy as np
-from utils import curriculum_learning_loss, calculate_threshold, save_data, show_failed_imgs
-from femnist import FemnistDataset
+from transfer_teacher_learning.femnist_tt.utils import curriculum_learning_loss, calculate_threshold, save_data, show_failed_imgs
+from transfer_teacher_learning.femnist_tt.femnist import FemnistDataset
 import copy
 
 # #############################################################################

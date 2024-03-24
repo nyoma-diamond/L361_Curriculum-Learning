@@ -48,7 +48,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             local_optimizer.zero_grad()
 
             trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
-                global_net,  # TODO: global net or local net?
+                global_net,  # global-net: transfer-teacher, local_net: self-paced
                 curriculum_criterion,
                 images,
                 labels,
