@@ -67,10 +67,10 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
                 for loss in loss_indv:
                   losses.append([loss.item(), loss_threshold, epoch, batch_i])
             else:
-                keep_indices = images.indices()
+                keep_indices = torch.arange(images.shape[0])
 
             # Update local model
-            local_loss = criterion_mean(local_net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()])
+            local_loss = criterion_mean(local_net(images[keep_indices.flatten()]), labels[keep_indices.flatten()])
             local_loss.backward()
             for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
                 local_param.grad += config['lambda'] * (local_param - global_param)
@@ -78,11 +78,11 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
             # Update global model
             global_optimizer.zero_grad()
-            global_loss = criterion_mean(global_net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()])
+            global_loss = criterion_mean(global_net(images[keep_indices.flatten()]), labels[keep_indices.flatten()])
             global_loss.backward()
             global_optimizer.step()
 
-        if 'test_name' in config and config['test_name'] is not None:
+        if config['curriculum_type'] is not CurriculumType.NONE and 'test_name' in config and config['test_name'] is not None:
             save_data(losses, config['test_name'], cid)
 
 def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
