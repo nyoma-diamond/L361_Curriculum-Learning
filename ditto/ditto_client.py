@@ -18,13 +18,12 @@ from utils import *
 
 warnings.filterwarnings('ignore', category=UserWarning)
 
-# Use GPU on system if possible
-DEVICE = get_device()
-
 def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, config: dict, cid: int):
     """Train the model on the training set."""
     if type(local_net) is not type(global_net):
         raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
+
+    use_cl = config['curriculum_type'] is not CurriculumType.NONE
 
     local_net.train()
     global_net.train()
@@ -39,6 +38,25 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     losses = []
 
     for epoch in range(config['local_epochs']):
+
+        if use_cl:  # CURRICULUM LEARNING
+            match config['curriculum_type']:
+                case CurriculumType.TRANSFER_TEACHER:
+                    teacher_net = global_net
+                case CurriculumType.SELF_PACED:
+                    teacher_net = local_net
+                case _:
+                    raise Exception('Invalid CurriculumType provided')
+
+            loss_threshold = calculate_threshold(
+                teacher_net,
+                curriculum_criterion,
+                train_loader,
+                config['loss_threshold'],
+                config['threshold_type'],
+                config['percentile_type']
+            )
+
         for batch_i, (images, labels) in enumerate(train_loader):
             images = images.to(DEVICE)
             labels = labels.to(DEVICE)
@@ -46,23 +64,14 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
 
-            if config['curriculum_type'] is not CurriculumType.NONE:  # CURRICULUM LEARNING
-                match config['curriculum_type']:
-                    case CurriculumType.TRANSFER_TEACHER:
-                        teacher_net = global_net
-                    case CurriculumType.SELF_PACED:
-                        teacher_net = local_net
-                    case _:
-                        raise Exception('Invalid CurriculumType provided')
-
+            if use_cl:  # CURRICULUM LEARNING
                 trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
                     teacher_net,
                     curriculum_criterion,
                     images,
                     labels,
-                    config['loss_threshold'],
-                    config['threshold_type'],  # change 0 for just flat num, 1, for percentile
-                    config['percentile_type'])  # change 'linear' for true percentile, 'normal_unbiased' for normal
+                    loss_threshold
+                )
 
                 for loss in loss_indv:
                   losses.append([loss.item(), loss_threshold, epoch, batch_i])
@@ -99,7 +108,7 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
             outputs = net(images)
             loss += criterion(outputs, labels).item()
             total += labels.size(0)
-            correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+            correct += (torch.max(outputs, 1)[1] == labels).sum().item()
     return loss / len(test_loader.dataset), correct / total
 
 

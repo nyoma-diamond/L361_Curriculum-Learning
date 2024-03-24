@@ -36,6 +36,41 @@ def get_device(log=False):
             print('Using CPU')
         return torch.device('cpu')
 
+DEVICE = get_device()
+
+def calculate_threshold(
+        net: nn.Module,
+        loss_func: _Loss,
+        train_loader: torch.data.utils.DataLoader,
+        loss_threshold: float,
+        threshold_type: ThresholdType,
+        percentile_type: str,
+        device = DEVICE
+    ):
+    assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
+
+    loss_indv = np.empty((0))
+
+    if threshold_type in [ThresholdType.PERCENTILE, ThresholdType.QUANTILE]:
+        for images, labels in train_loader:
+
+            images = images.to(device)
+            labels = labels.to(device)
+
+            losses = loss_func(net(images), labels).cpu().numpy()
+            loss_indv = np.append(loss_indv, losses)
+
+        match threshold_type:
+            case ThresholdType.PERCENTILE:
+                return np.percentile(loss_indv, loss_threshold, method=percentile_type)
+            case ThresholdType.QUANTILE:
+                return np.quantile(loss_indv, loss_threshold, method=percentile_type)
+            case _:
+                raise Exception('Invalid ThresholdType. Something went VERY wrong')
+
+    else:
+        return loss_threshold
+
 
 def curriculum_learning_loss(
         net: nn.Module,
@@ -43,8 +78,7 @@ def curriculum_learning_loss(
         images: torch.Tensor,
         labels: torch.Tensor,
         loss_threshold: float,
-        loss_type: ThresholdType = ThresholdType.PERCENTILE,
-        percentile_type: str = 'linear'
+        device = DEVICE
     ):
     '''
 
@@ -54,32 +88,19 @@ def curriculum_learning_loss(
         - Make sure to that no reduction is performed!
     - Images: batch of images
     - labels: batch of labels
-    - loss_threshold: depending on what you enter as loss type, this can be actual loss value
-        or the percentile value you want to test for your scenario
-    - DEVICE: CPU/GPU
-    - loss_type: This has the following options:
-        - ThresholdType.PERCENTILE: use loss_threshold value as a singular number if a loss value is too high or low
-        - ThresholdType.DIRECT_VALUE: use loss_threshold value as a percentile in a normal distribution curve to see
-                                      if a loss value is too high or low
-    - percentile_type: check out this link for more info: https://numpy.org/doc/stable/reference/generated/numpy.percentile.html
-        - 'linear': true percentile
-        - 'normal_unbiased': sampling from a normal distribution curve
+    - loss_threshold: loss cutoff threshold
+    - device: CPU/GPU
     '''
     assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
 
+    images = images.to(device)
+    labels = labels.to(device)
+
     loss_indv = loss_func(net(images), labels)  # get individual losses
 
-    match loss_type:
-        case ThresholdType.PERCENTILE:
-            loss_threshold = np.percentile(loss_indv.data.cpu().numpy(), loss_threshold, method=percentile_type)
-        case ThresholdType.QUANTILE:
-            loss_threshold = np.quantile(loss_indv.data.cpu().numpy(), loss_threshold, method=percentile_type)
-
-
-    # print(loss_indv)
-    b = loss_indv >= loss_threshold  # get indices of which are larger than loss_threshold
+    b = loss_indv >= loss_threshold  # get indicies of which are larger than loss_threshold
     trash_indices = b.nonzero()
-    d = loss_indv < loss_threshold  # get indices of which are larger than loss_threshold
+    d = loss_indv < loss_threshold  # get indicies of which are larger than loss_threshold
     keep_indices = d.nonzero()
 
     return trash_indices, keep_indices, loss_threshold, loss_indv
