@@ -16,6 +16,10 @@ class ThresholdType(Enum):
     PERCENTILE = 1
     QUANTILE = 2
 
+class CurriculumType(Enum):
+    SELF_PACED = 0
+    TRANSFER_TEACHER = 1
+
 
 def get_device(log=False):
     if torch.cuda.is_available():

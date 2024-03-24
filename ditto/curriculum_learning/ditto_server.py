@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 
@@ -9,7 +10,7 @@ import flwr as fl
 from flwr.common import EvaluateRes, FitRes, Scalar
 from flwr.server.client_proxy import ClientProxy
 
-from typing import List, Tuple, Union, Optional, Dict
+from typing import List, Tuple, Union, Optional, Dict, Callable
 
 from ditto_client import ditto_client_fn, ditto_client_fn_generator
 
@@ -17,33 +18,38 @@ from utils import *
 from femnist import download_femnist
 
 
-EPOCHS = 25
-LOSS_THRESHOLD = 95
-TEST_NAME = 'test_percentile_hard'
-THRESHOLD_TYPE = ThresholdType.PERCENTILE
-PERCENTILE_TYPE = 'linear'
+DEFAULT_CONFIG = {
+    'local_epochs': 25,                                     # total epochs
+    'loss_threshold': 95,                                   # depending on what you enter as loss type, this can be actual loss value or the percentile value you want to test for your scenario
+    'test_name': 'test_percentile_hard',                    # put a meaningful test name
+    'threshold_type': ThresholdType.PERCENTILE,             # change 0 for just flat num, 1, for percentile
+    'percentile_type': 'linear',                            # change 'linear' for true percentile, 'normal_unbiased' for normal, put whatever for flat_num
+    'curriculum_type': CurriculumType.TRANSFER_TEACHER,     # type of curriculum learning to use
+    'lambda': None                                          # Ditto lambda value
+}
 
 
-# TODO: work on this fit_config function for more specialized cases
-def fit_config(server_round: int):
+def fit_config_fn_generator(config: Optional[dict] = None) -> Callable[[int], dict]:
     """
-    Return training configuration dict for each round.
-
-    Perform two rounds of training with one local epoch, increase to two local
-    epochs afterwards.
+    Create a fit_config function to generate configurations for each round
     """
-    config = {
-        'server_round': server_round,           # The current round of federated learning
-        'local_epochs': EPOCHS,                 # total epochs
-        'loss_threshold': LOSS_THRESHOLD,       # depending on what you enter as loss type, this can be actual loss value
-                                                # or the percentile value you want to test for your scenario
-        'test_name': TEST_NAME,                 # put a meaningful test name
-        'threshold_type': THRESHOLD_TYPE,       # change 0 for just flat num, 1, for percentile
-        'percentile_type': PERCENTILE_TYPE,     # change 'linear' for true percentile, 'normal_unbiased' for normal, put whatever for flat_num
-        'lambda': None                          # Ditto lambda value
-    }
-    return config
 
+    if config is None:
+        config = {}
+
+    def fit_config(server_round: int) -> dict:
+        """
+        Return training configuration dict for each round.
+        """
+        round_config = copy.deepcopy(config)            # deep copy init_config to prevent aliasing
+        round_config['server_round'] = server_round     # set current round
+
+        return DEFAULT_CONFIG | round_config            # dictionary union, favoring config over DEFAULT_CONFIG
+
+    return fit_config
+
+# Default fit_config function
+fit_config = fit_config_fn_generator()
 
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
