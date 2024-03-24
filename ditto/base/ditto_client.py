@@ -73,8 +73,7 @@ class DittoClient(fl.client.NumPyClient):
     def __init__(self,
                  cid: int,
                  train_loader: DataLoader,
-                 val_loader: DataLoader,
-                 _lambda: float, epochs_per_round: int):
+                 val_loader: DataLoader):
         self.cid = cid
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -130,7 +129,7 @@ class DittoClient(fl.client.NumPyClient):
             }
 
 
-def ditto_client_fn(cid: int, _lambda: float = 1.0, epochs_per_round: int = 25) -> DittoClient:
+def ditto_client_fn(cid: int) -> DittoClient:
     """Ditto client generator"""
     train_loader = DataLoader(
         FemnistDataset(client=cid, split='train', transform=ToTensor()),
@@ -146,4 +145,4 @@ def ditto_client_fn(cid: int, _lambda: float = 1.0, epochs_per_round: int = 25) 
         drop_last=False
     )
 
-    return DittoClient(cid, train_loader, val_loader, _lambda, epochs_per_round)
+    return DittoClient(cid, train_loader, val_loader)
