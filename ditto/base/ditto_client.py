@@ -1,13 +1,11 @@
 # Modified from https://flower.ai/
 import sys
 from collections import OrderedDict
-from functools import partial
-from typing import Tuple, Dict, Optional, Callable
+from typing import Tuple, Dict, Optional
 import warnings
 
 import flwr as fl
 from flwr.common.typing import Config, NDArrays, Scalar
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
@@ -24,7 +22,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 DEVICE = get_device()
 
 
-def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, _lambda: float, epochs: int):
+def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, config: dict):
     """Train the model on the training set."""
     if type(local_net) is not type(global_net):
         raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
@@ -36,13 +34,13 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     # TODO: config for optimizer parameters
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
-    for i in range(epochs):
+    for i in range(config['local_epochs']):
         for images, labels in train_loader:
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
             criterion(local_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
             for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
-                local_param.grad += _lambda * (local_param - global_param)
+                local_param.grad += config['lambda'] * (local_param - global_param)
             local_optimizer.step()
 
             # Train the global model with our data
@@ -84,10 +82,6 @@ class DittoClient(fl.client.NumPyClient):
         self.local_net = FemnistNet().to(DEVICE)
         self.global_net = FemnistNet().to(DEVICE)
 
-        # TODO: these may be altered via `config` during operation
-        self._lambda = _lambda
-        self.epochs_per_round = epochs_per_round
-
     def save_local_model(self):
         torch.save(self.local_net.state_dict(), f'{CLIENT_MODEL_DIR}/{self.cid}.pth')
 
@@ -114,7 +108,7 @@ class DittoClient(fl.client.NumPyClient):
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
-        train(self.local_net, self.global_net, self.train_loader, self._lambda, self.epochs_per_round)
+        train(self.local_net, self.global_net, self.train_loader, config)
 
         self.save_local_model()
         # TODO: report training metrics
@@ -153,7 +147,3 @@ def ditto_client_fn(cid: int, _lambda: float = 1.0, epochs_per_round: int = 25) 
     )
 
     return DittoClient(cid, train_loader, val_loader, _lambda, epochs_per_round)
-
-
-def ditto_client_fn_generator(_lambda: float = 1.0, epochs_per_round: int = 25) -> Callable[[int], DittoClient]:
-    return partial(ditto_client_fn, _lambda=_lambda, epochs_per_round=epochs_per_round)

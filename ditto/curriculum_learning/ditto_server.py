@@ -4,18 +4,13 @@ import sys
 
 os.environ['RAY_DEDUP_LOGS'] = '0'
 
-import shutil
-
 import flwr as fl
 from flwr.common import EvaluateRes, FitRes, Scalar
 from flwr.server.client_proxy import ClientProxy
 
 from typing import List, Tuple, Union, Optional, Dict, Callable
 
-from ditto_client import ditto_client_fn
-
-from utils import *
-from femnist import download_femnist
+from utils import ThresholdType, CurriculumType
 
 
 DEFAULT_CONFIG = {
@@ -96,32 +91,3 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'global_accuracy': [r.metrics['global_accuracy'] for _, r in results],
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
-
-
-
-if __name__ == '__main__':
-    # Download FEMNIST data (does nothing if already present)
-    download_femnist()
-
-    # Reset client models
-    if os.path.exists(CLIENT_MODEL_DIR):
-        shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
-    os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
-
-    num_clients = 16
-
-    # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-    fl.simulation.start_simulation(
-        num_clients=num_clients,
-        client_fn=ditto_client_fn,
-        config=fl.server.ServerConfig(num_rounds=5),
-        strategy=DittoStrategy(
-            log_accuracy=True,
-            on_fit_config_fn=fit_config_fn_generator({
-                'lambda': 1.0
-            })
-        ),
-        client_resources={
-            'num_cpus': max(os.cpu_count()//num_clients, 1)
-        }
-    )

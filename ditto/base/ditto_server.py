@@ -1,25 +1,49 @@
 import os
 import sys
+import copy
 
 os.environ['RAY_DEDUP_LOGS'] = '0'
-
-import shutil
 
 import flwr as fl
 from flwr.common import EvaluateRes, FitRes, Scalar
 from flwr.server.client_proxy import ClientProxy
 
-from typing import List, Tuple, Union, Optional, Dict
+from typing import List, Tuple, Union, Optional, Dict, Callable
 
-from ditto_client import ditto_client_fn, ditto_client_fn_generator
-from femnist import download_femnist
-from utils import *
+DEFAULT_CONFIG = {
+    'local_epochs': 25,  # total epochs
+    'lambda': 1.0        # Ditto lambda value
+}
+
+
+def fit_config_fn_generator(config: Optional[dict] = None) -> Callable[[int], dict]:
+    """
+    Create a fit_config function to generate configurations for each round
+    """
+
+    if config is None:
+        config = {}
+
+    def fit_config(server_round: int) -> dict:
+        """
+        Return training configuration dict for each round.
+        """
+        round_config = copy.deepcopy(config)            # deep copy init_config to prevent aliasing
+        round_config['server_round'] = server_round     # set current round
+
+        return DEFAULT_CONFIG | round_config            # dictionary union, favoring config over DEFAULT_CONFIG
+
+    return fit_config
+
+# Default fit_config function
+fit_config = fit_config_fn_generator()
+
 
 
 # Modified from https://flower.ai/docs/framework/how-to-aggregate-evaluation-results.html
 class DittoStrategy(fl.server.strategy.FedAvg):
-    def __init__(self, log_accuracy=False):
-        super().__init__()
+    def __init__(self, log_accuracy=False, **kwargs):
+        super().__init__(**kwargs)
         self.log_accuracy = log_accuracy
 
 
@@ -60,27 +84,3 @@ class DittoStrategy(fl.server.strategy.FedAvg):
                 'global_accuracy': [r.metrics['global_accuracy'] for _, r in results],
                 'local_accuracy': [r.metrics['local_accuracy'] for _, r in results]
             }
-
-
-
-if __name__ == '__main__':
-    # Download FEMNIST data (does nothing if already present)
-    download_femnist()
-
-    # Reset client models
-    if os.path.exists(CLIENT_MODEL_DIR):
-        shutil.rmtree(CLIENT_MODEL_DIR)  # Delete client model directory
-    os.makedirs(CLIENT_MODEL_DIR)  # Recreate client model directory
-
-    num_clients = 16
-
-    # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-    fl.simulation.start_simulation(
-        num_clients=num_clients,
-        client_fn=ditto_client_fn_generator(_lambda=1.0, epochs_per_round=25),
-        config=fl.server.ServerConfig(num_rounds=25),
-        strategy=DittoStrategy(log_accuracy=True),
-        client_resources={
-            'num_cpus': max(os.cpu_count()//num_clients, 1)
-        }
-    )

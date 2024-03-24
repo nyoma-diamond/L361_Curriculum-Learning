@@ -1,8 +1,7 @@
 # Modified from https://flower.ai/
 import sys
 from collections import OrderedDict
-from functools import partial
-from typing import Tuple, Dict, Optional, Callable
+from typing import Tuple, Dict, Optional
 import warnings
 
 import flwr as fl
