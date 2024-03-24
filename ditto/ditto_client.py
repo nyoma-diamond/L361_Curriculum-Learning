@@ -35,10 +35,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
 
-    losses = []
-
     for epoch in range(config['local_epochs']):
-
         if use_cl:  # CURRICULUM LEARNING
             match config['curriculum_type']:
                 case CurriculumType.TRANSFER_TEACHER:
