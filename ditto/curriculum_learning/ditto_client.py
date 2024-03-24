@@ -72,7 +72,8 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             global_loss.backward()
             global_optimizer.step()
 
-        save_data(losses, config['test_name'], cid)
+        if 'test_name' in config and config['test_name'] is not None:
+            save_data(losses, config['test_name'], cid)
 
 def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
     """Validate the model on the test set."""
@@ -99,19 +100,13 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
 # Define Ditto client
 class DittoClient(fl.client.NumPyClient):
     # Modified from https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-    def __init__(self,
-                 cid: int,
-                 train_loader: DataLoader,
-                 val_loader: DataLoader,
-                 _lambda: float):
+    def __init__(self, cid: int, train_loader: DataLoader, val_loader: DataLoader):
         self.cid = cid
         self.train_loader = train_loader
         self.val_loader = val_loader
 
         self.local_net = FemnistNet().to(DEVICE)
         self.global_net = FemnistNet().to(DEVICE)
-
-        self._lambda = _lambda
 
     def save_local_model(self):
         torch.save(self.local_net.state_dict(), f'{CLIENT_MODEL_DIR}/{self.cid}.pth')
@@ -136,11 +131,6 @@ class DittoClient(fl.client.NumPyClient):
         net.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Dict[str, Scalar]]:
-        if 'lambda' in config and config['lambda'] is not None:
-            self._lambda = config['lambda']
-        else:
-            config['lambda'] = self._lambda
-
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
@@ -151,11 +141,6 @@ class DittoClient(fl.client.NumPyClient):
         return self.get_parameters(config={}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Dict[str, Scalar]]:
-        if 'lambda' in config and config['lambda'] is not None:
-            self._lambda = config['lambda']
-        else:
-            config['lambda'] = self._lambda
-
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
@@ -171,7 +156,7 @@ class DittoClient(fl.client.NumPyClient):
             }
 
 
-def ditto_client_fn(cid: int, _lambda: float = 1.0) -> DittoClient:
+def ditto_client_fn(cid: int) -> DittoClient:
     """Ditto client generator"""
     train_loader = DataLoader(
         FemnistDataset(client=cid, split='train', transform=ToTensor()),
@@ -187,7 +172,4 @@ def ditto_client_fn(cid: int, _lambda: float = 1.0) -> DittoClient:
         drop_last=False
     )
 
-    return DittoClient(cid, train_loader, val_loader, _lambda=_lambda)
-
-def ditto_client_fn_generator(_lambda: float = 1.0) -> Callable[[int], DittoClient]:
-    return partial(ditto_client_fn, _lambda=_lambda)
+    return DittoClient(cid, train_loader, val_loader)

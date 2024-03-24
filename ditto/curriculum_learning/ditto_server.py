@@ -12,7 +12,7 @@ from flwr.server.client_proxy import ClientProxy
 
 from typing import List, Tuple, Union, Optional, Dict, Callable
 
-from ditto_client import ditto_client_fn, ditto_client_fn_generator
+from ditto_client import ditto_client_fn
 
 from utils import *
 from femnist import download_femnist
@@ -20,12 +20,12 @@ from femnist import download_femnist
 
 DEFAULT_CONFIG = {
     'local_epochs': 25,                                     # total epochs
-    'loss_threshold': 95,                                   # depending on what you enter as loss type, this can be actual loss value or the percentile value you want to test for your scenario
-    'test_name': 'test_percentile_hard',                    # put a meaningful test name
-    'threshold_type': ThresholdType.PERCENTILE,             # change 0 for just flat num, 1, for percentile
+    'loss_threshold': 0.95,                                 # depending on what you enter as loss type, this can be actual loss value or the percentile value you want to test for your scenario
+    # 'test_name': None,                                    # put a meaningful test name for saving training results. Does nothing if unset or set to None
+    'threshold_type': ThresholdType.QUANTILE,               # change 0 for just flat num, 1, for percentile
     'percentile_type': 'linear',                            # change 'linear' for true percentile, 'normal_unbiased' for normal, put whatever for flat_num
     'curriculum_type': CurriculumType.TRANSFER_TEACHER,     # type of curriculum learning to use
-    'lambda': None                                          # Ditto lambda value
+    'lambda': 1.0                                           # Ditto lambda value
 }
 
 
@@ -113,9 +113,14 @@ if __name__ == '__main__':
     # https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
     fl.simulation.start_simulation(
         num_clients=num_clients,
-        client_fn=ditto_client_fn_generator(_lambda=1.0),
+        client_fn=ditto_client_fn,
         config=fl.server.ServerConfig(num_rounds=5),
-        strategy=DittoStrategy(log_accuracy=True, on_fit_config_fn=fit_config),
+        strategy=DittoStrategy(
+            log_accuracy=True,
+            on_fit_config_fn=fit_config_fn_generator({
+                'lambda': 1.0
+            })
+        ),
         client_resources={
             'num_cpus': max(os.cpu_count()//num_clients, 1)
         }
