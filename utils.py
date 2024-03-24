@@ -77,7 +77,7 @@ def compute_curriculum(
             labels = labels.to(device)
 
             losses = loss_func(teacher_net(images), labels).detach().cpu()
-            loss_indv.append(losses.flatten())
+            loss_indv.append(losses)
 
         match threshold_type:
             case ThresholdType.PERCENTILE:
@@ -92,9 +92,9 @@ def compute_curriculum(
 
     for batch in loss_indv:
         b = batch >= loss_threshold  # get indicies of which are larger than loss_threshold
-        trash_indices.append(b.nonzero())
+        trash_indices.append(b.nonzero().flatten())
         d = batch < loss_threshold  # get indicies of which are larger than loss_threshold
-        keep_indices.append(d.nonzero())
+        keep_indices.append(d.nonzero().flatten())
 
     return trash_indices, keep_indices, loss_threshold, loss_indv
 
