@@ -93,12 +93,12 @@ def save_data(losses, images_passed, images_failed, test_name, cid, DEVICE):
             os.makedirs(folder_name+"/round_"+str(round)+"/imgs_passed")
     x.to_csv(folder_name+"/round_"+str(round)+"/losses.csv")
 
-    for [image_1,label,loss_ind, loss_threshold,epoch] in images_failed:
-        file_name = folder_name+"/round_"+str(round)+"/imgs_failed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"   
-        torchvision.utils.save_image(image_1, file_name)
-    for [image_1,label,loss_ind, loss_threshold,epoch] in images_passed:
-        file_name = folder_name+"/round_"+str(round)+"/imgs_passed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"   
-        torchvision.utils.save_image(image_1, file_name)
+    # for [image_1,label,loss_ind, loss_threshold,epoch] in images_failed:
+    #     file_name = folder_name+"/round_"+str(round)+"/imgs_failed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"
+    #     torchvision.utils.save_image(image_1, file_name)
+    # for [image_1,label,loss_ind, loss_threshold,epoch] in images_passed:
+    #     file_name = folder_name+"/round_"+str(round)+"/imgs_passed/"+str(label.item())+"_"+str(loss_ind.item())+"_"+str(loss_threshold)+"_"+str(epoch)+".jpg"
+    #     torchvision.utils.save_image(image_1, file_name)
     #     # print(image_1)
     #     # tensor = image_1*255
     #     # tensor = np.array(tensor.cpu(), dtype=np.uint8)
