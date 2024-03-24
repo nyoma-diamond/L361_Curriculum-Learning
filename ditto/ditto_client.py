@@ -31,27 +31,27 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
 
-	if use_cl:  # CURRICULUM LEARNING
-		match config['curriculum_type']:
-			case CurriculumType.TRANSFER_TEACHER:
-				teacher_net = global_net
-			case CurriculumType.SELF_PACED:
-				teacher_net = local_net
-			case _:
-				raise Exception('Invalid CurriculumType provided')
+    if use_cl:  # CURRICULUM LEARNING
+        match config['curriculum_type']:
+            case CurriculumType.TRANSFER_TEACHER:
+                teacher_net = global_net
+            case CurriculumType.SELF_PACED:
+                teacher_net = local_net
+            case _:
+                raise Exception('Invalid CurriculumType provided')
 
-		teacher_net.eval()
+        teacher_net.eval()
 
-		trash_indices, keep_indices, loss_threshold, loss_indv = compute_curriculum(
-			teacher_net,
-			curriculum_criterion,
-			train_loader,
-			config['loss_threshold'],
-			config['threshold_type'],
-			config['percentile_type']
-		)
+        trash_indices, keep_indices, loss_threshold, loss_indv = compute_curriculum(
+            teacher_net,
+            curriculum_criterion,
+            train_loader,
+            config['loss_threshold'],
+            config['threshold_type'],
+            config['percentile_type']
+        )
 
-		teacher_net.train()
+        teacher_net.train()
 
     # TODO: config for optimizer parameters
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
