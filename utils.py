@@ -77,7 +77,7 @@ def compute_curriculum(
             labels = labels.to(device)
 
             losses = loss_func(teacher_net(images), labels).detach().cpu()
-            loss_indv.append(losses)
+            loss_indv.append(losses.flatten())
 
         match threshold_type:
             case ThresholdType.PERCENTILE:
