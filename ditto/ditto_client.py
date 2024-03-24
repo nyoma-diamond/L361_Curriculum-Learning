@@ -57,7 +57,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
             if config['curriculum_type'] is not CurriculumType.NONE:
                 trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
-                    curriculum_net
+                    curriculum_net,
                     curriculum_criterion,
                     images,
                     labels,
