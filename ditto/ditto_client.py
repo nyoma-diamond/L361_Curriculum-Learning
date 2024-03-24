@@ -9,20 +9,19 @@ from flwr.common.typing import Config, NDArrays, Scalar
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
-from utils import *
 from femnist import FemnistDataset, FemnistNet
+from utils import *
 
 # #############################################################################
 # Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
 # #############################################################################
 
-warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 # Use GPU on system if possible
 DEVICE = get_device()
 
-
-def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, config: dict):
+def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader, config: dict, cid: int):
     """Train the model on the training set."""
     if type(local_net) is not type(global_net):
         raise TypeError(f'Ditto training expects local_net and global_net to be the same type. Got {type(local_net)} and {type(global_net)}.')
@@ -30,23 +29,62 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     local_net.train()
     global_net.train()
 
-    criterion = torch.nn.CrossEntropyLoss()
+    curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
+    criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
+    match config['curriculum_type']:
+        case CurriculumType.TRANSFER_TEACHER:
+            curriculum_net = global_net
+        case CurriculumType.SELF_PACED:
+            curriculum_net = local_net
+        case CurriculumType.NONE:
+            pass
+        case _:
+            raise Exception('Invalid CurriculumType provided')
+
     # TODO: config for optimizer parameters
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
     global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
-    for i in range(config['local_epochs']):
-        for images, labels in train_loader:
+
+    losses = []
+
+    for epoch in range(config['local_epochs']):
+        for batch_i, (images, labels) in enumerate(train_loader):
+            images = images.to(DEVICE)
+            labels = labels.to(DEVICE)
+
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
-            criterion(local_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
+
+            if config['curriculum_type'] is not CurriculumType.NONE:
+                trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
+                    curriculum_net
+                    curriculum_criterion,
+                    images,
+                    labels,
+                    config['loss_threshold'],
+                    config['threshold_type'],  # change 0 for just flat num, 1, for percentile
+                    config['percentile_type'])  # change 'linear' for true percentile, 'normal_unbiased' for normal
+
+                for loss in loss_indv:
+                  losses.append([loss.item(), loss_threshold, epoch, batch_i])
+            else:
+                keep_indices = images.indices()
+
+            # Update local model
+            local_loss = criterion_mean(local_net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()])
+            local_loss.backward()
             for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
                 local_param.grad += config['lambda'] * (local_param - global_param)
             local_optimizer.step()
 
-            # Train the global model with our data
+            # Update global model
             global_optimizer.zero_grad()
-            criterion(global_net(images.to(DEVICE)), labels.to(DEVICE)).backward()
+            global_loss = criterion_mean(global_net(images[keep_indices.flatten(),:,:,:]), labels[keep_indices.flatten()])
+            global_loss.backward()
             global_optimizer.step()
+
+        if 'test_name' in config and config['test_name'] is not None:
+            save_data(losses, config['test_name'], cid)
 
 def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
     """Validate the model on the test set."""
@@ -59,8 +97,8 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
             images = images.to(DEVICE)
             labels = labels.to(DEVICE)
 
-            outputs = net(images.to(DEVICE))
-            loss += criterion(outputs, labels.to(DEVICE)).item()
+            outputs = net(images)
+            loss += criterion(outputs, labels).item()
             total += labels.size(0)
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     return loss / len(test_loader.dataset), correct / total
@@ -73,10 +111,7 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
 # Define Ditto client
 class DittoClient(fl.client.NumPyClient):
     # Modified from https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html
-    def __init__(self,
-                 cid: int,
-                 train_loader: DataLoader,
-                 val_loader: DataLoader):
+    def __init__(self, cid: int, train_loader: DataLoader, val_loader: DataLoader):
         self.cid = cid
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -110,7 +145,7 @@ class DittoClient(fl.client.NumPyClient):
         self.set_parameters(self.global_net, parameters)
         self.load_local_model(parameters)
 
-        train(self.local_net, self.global_net, self.train_loader, config)
+        train(self.local_net, self.global_net, self.train_loader, config, self.cid)
 
         self.save_local_model()
         # TODO: report training metrics

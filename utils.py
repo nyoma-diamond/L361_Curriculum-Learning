@@ -17,8 +17,9 @@ class ThresholdType(Enum):
     QUANTILE = 2
 
 class CurriculumType(Enum):
-    SELF_PACED = 0
-    TRANSFER_TEACHER = 1
+    NONE = 0
+    SELF_PACED = 1
+    TRANSFER_TEACHER = 2
 
 
 def get_device(log=False):
@@ -76,9 +77,9 @@ def curriculum_learning_loss(
 
 
     # print(loss_indv)
-    b = loss_indv >= loss_threshold  # get indicies of which are larger than loss_threshold
+    b = loss_indv >= loss_threshold  # get indices of which are larger than loss_threshold
     trash_indices = b.nonzero()
-    d = loss_indv < loss_threshold  # get indicies of which are larger than loss_threshold
+    d = loss_indv < loss_threshold  # get indices of which are larger than loss_threshold
     keep_indices = d.nonzero()
 
     return trash_indices, keep_indices, loss_threshold, loss_indv
