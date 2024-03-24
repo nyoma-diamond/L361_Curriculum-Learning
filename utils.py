@@ -41,7 +41,7 @@ DEVICE = get_device()
 def calculate_threshold(
         net: nn.Module,
         loss_func: _Loss,
-        train_loader: torch.data.utils.DataLoader,
+        train_loader: torch.utils.data.DataLoader,
         loss_threshold: float,
         threshold_type: ThresholdType,
         percentile_type: str,
@@ -81,7 +81,6 @@ def curriculum_learning_loss(
         device = DEVICE
     ):
     '''
-
     Inputs: 
     - net: neural network
     - loss_func: loss function for computing threshold
