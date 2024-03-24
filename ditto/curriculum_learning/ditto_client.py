@@ -31,6 +31,13 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
     curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
+    match config['curriculum_type']:
+        case CurriculumType.TRANSFER_TEACHER:
+            curriculum_net = global_net
+        case CurriculumType.SELF_PACED:
+            curriculum_net = local_net
+        case _:
+            raise Exception('Invalid CurriculumType provided')
 
     # TODO: config for optimizer parameters
     local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
@@ -47,7 +54,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             local_optimizer.zero_grad()
 
             trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
-                global_net,  # global-net: transfer-teacher, local_net: self-paced
+                curriculum_net
                 curriculum_criterion,
                 images,
                 labels,
