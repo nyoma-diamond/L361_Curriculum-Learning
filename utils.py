@@ -74,7 +74,7 @@ def calculate_threshold(
             images = images.to(device)
             labels = labels.to(device)
 
-            losses = loss_func(net(images), labels).cpu().numpy()
+            losses = loss_func(net(images), labels).detach().cpu().numpy()
             loss_indv = np.append(loss_indv, losses)
 
         match threshold_type:
@@ -112,14 +112,14 @@ def curriculum_learning_loss(
     images = images.to(device)
     labels = labels.to(device)
 
-    loss_indv = loss_func(net(images), labels)  # get individual losses
+    loss_indv = loss_func(net(images), labels).detach()  # get individual losses
 
     b = loss_indv >= loss_threshold  # get indicies of which are larger than loss_threshold
     trash_indices = b.nonzero()
     d = loss_indv < loss_threshold  # get indicies of which are larger than loss_threshold
     keep_indices = d.nonzero()
 
-    return trash_indices, keep_indices, loss_threshold, loss_indv
+    return trash_indices, keep_indices, loss_indv
 
 
 def save_data(losses, test_name, cid):

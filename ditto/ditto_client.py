@@ -48,6 +48,8 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
                 case _:
                     raise Exception('Invalid CurriculumType provided')
 
+            teacher_net.eval()
+
             loss_threshold = calculate_threshold(
                 teacher_net,
                 curriculum_criterion,
@@ -57,6 +59,8 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
                 config['percentile_type']
             )
 
+            teacher_net.train()
+
         for batch_i, (images, labels) in enumerate(train_loader):
             images = images.to(DEVICE)
             labels = labels.to(DEVICE)
@@ -65,7 +69,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             local_optimizer.zero_grad()
 
             if use_cl:  # CURRICULUM LEARNING
-                trash_indices, keep_indices, loss_threshold, loss_indv = curriculum_learning_loss(
+                trash_indices, keep_indices, loss_indv = curriculum_learning_loss(
                     teacher_net,
                     curriculum_criterion,
                     images,
@@ -91,7 +95,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             global_loss.backward()
             global_optimizer.step()
 
-        if config['curriculum_type'] is not CurriculumType.NONE and 'test_name' in config and config['test_name'] is not None:
+        if use_cl and 'test_name' in config and config['test_name'] is not None:
             save_data(losses, config['test_name'], cid)
 
 def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
