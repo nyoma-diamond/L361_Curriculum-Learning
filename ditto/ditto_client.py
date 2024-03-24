@@ -46,7 +46,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             # Train the local model w/ our data, biased by the difference from the global model
             local_optimizer.zero_grad()
 
-            if config['curriculum_type'] is not CurriculumType.NONE:
+            if config['curriculum_type'] is not CurriculumType.NONE:  # CURRICULUM LEARNING
                 match config['curriculum_type']:
                     case CurriculumType.TRANSFER_TEACHER:
                         teacher_net = global_net
@@ -66,7 +66,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
                 for loss in loss_indv:
                   losses.append([loss.item(), loss_threshold, epoch, batch_i])
-            else:
+            else:  # BASE DITTO
                 keep_indices = torch.arange(images.shape[0])
 
             # Update local model
