@@ -31,12 +31,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
     curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
 
-    # TODO: config for optimizer parameters
-    local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
-    global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
-
-    for epoch in range(config['local_epochs']):
-        if use_cl:  # CURRICULUM LEARNING
+	if use_cl:  # CURRICULUM LEARNING
             match config['curriculum_type']:
                 case CurriculumType.TRANSFER_TEACHER:
                     teacher_net = global_net
@@ -58,6 +53,11 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
             teacher_net.train()
 
+    # TODO: config for optimizer parameters
+    local_optimizer = torch.optim.SGD(local_net.parameters(), lr=0.01, momentum=0.9)
+    global_optimizer = torch.optim.SGD(global_net.parameters(), lr=0.01, momentum=0.9)
+
+    for epoch in range(config['local_epochs']):
         for batch_i, (images, labels) in enumerate(train_loader):
             if use_cl:  # CURRICULUM LEARNING
                 images = images[keep_indices[batch_i]]
