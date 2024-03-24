@@ -56,6 +56,9 @@ def test(net: nn.Module, test_loader: DataLoader) -> Tuple[float, float]:
     correct, total, loss = 0, 0, 0.0
     with torch.no_grad():
         for images, labels in test_loader:
+            images = images.to(DEVICE)
+            labels = labels.to(DEVICE)
+
             outputs = net(images.to(DEVICE))
             loss += criterion(outputs, labels.to(DEVICE)).item()
             total += labels.size(0)
