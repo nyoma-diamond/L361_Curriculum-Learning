@@ -43,8 +43,9 @@ def get_device(log=False):
 
 DEVICE = get_device()
 
-def calculate_threshold(
-        net: nn.Module,
+
+def compute_curriculum(
+        teacher_net: nn.Module,
         loss_func: _Loss,
         train_loader: torch.utils.data.DataLoader,
         loss_threshold: float,
@@ -53,7 +54,7 @@ def calculate_threshold(
         device: torch.device = DEVICE
     ):
     """
-    Compute loss cutoff threshold for curriculum learning
+    Compute curriculum for the current epoch
 
     :param net: model to compute threshold on
     :param loss_func: loss function to compute threshold with
@@ -63,63 +64,39 @@ def calculate_threshold(
     :param percentile_type: percentile computation method; passed to np.percentile/np.quantile.
                             expected: 'linear' for true cutoff, 'normal_unbiased' for normal approximated cutoff
     :param device: CPU/GPU device to compute on (should be same as net's device)
+
+    :return: indices of tensors beyond threshold, indices of tensors within threshold, computed loss cutoff threshold, observed losses
     """
     assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
 
-    loss_indv = np.empty((0))
+    loss_indv = []
 
     if threshold_type in [ThresholdType.PERCENTILE, ThresholdType.QUANTILE]:
         for images, labels in train_loader:
-
             images = images.to(device)
             labels = labels.to(device)
 
-            losses = loss_func(net(images), labels).detach().cpu().numpy()
-            loss_indv = np.append(loss_indv, losses)
+            losses = loss_func(net(images), labels).detach().cpu()
+            loss_indv.append(losses)
 
         match threshold_type:
             case ThresholdType.PERCENTILE:
-                return np.percentile(loss_indv, loss_threshold, method=percentile_type)
+                loss_threshold = np.percentile(loss_indv, loss_threshold, method=percentile_type)
             case ThresholdType.QUANTILE:
-                return np.quantile(loss_indv, loss_threshold, method=percentile_type)
+                loss_threshold = np.quantile(loss_indv, loss_threshold, method=percentile_type)
             case _:
                 raise Exception('Invalid ThresholdType. Something went VERY wrong')
 
-    else:
-        return loss_threshold
+    trash_indices = []
+    keep_indices = []
 
+    for batch in loss_indv:
+        b = batch >= loss_threshold  # get indicies of which are larger than loss_threshold
+        trash_indices.append(b.nonzero())
+        d = batch < loss_threshold  # get indicies of which are larger than loss_threshold
+        keep_indices.append(d.nonzero())
 
-def curriculum_learning_loss(
-        net: nn.Module,
-        loss_func: _Loss,
-        images: torch.Tensor,
-        labels: torch.Tensor,
-        loss_threshold: float,
-        device = DEVICE
-    ):
-    """
-    Inputs:
-    - net: neural network
-    - loss_func: loss function for computing threshold
-        - Make sure to that no reduction is performed!
-    - Images: batch of images
-    - labels: batch of labels
-    - loss_threshold: loss cutoff threshold
-    - device: CPU/GPU
-    """
-    assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
-
-    images = images.to(device)
-    labels = labels.to(device)
-
-    loss_indv = loss_func(net(images), labels).detach()  # get individual losses
-
-    b = loss_indv >= loss_threshold  # get indicies of which are larger than loss_threshold
-    trash_indices = b.nonzero()
-    d = loss_indv < loss_threshold  # get indicies of which are larger than loss_threshold
-    keep_indices = d.nonzero()
-
-    return trash_indices, keep_indices, loss_indv
+    return trash_indices, keep_indices, loss_threshold, loss_indv
 
 
 def save_data(losses, test_name, cid):
