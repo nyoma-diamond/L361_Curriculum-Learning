@@ -76,7 +76,7 @@ def compute_curriculum(
             images = images.to(device)
             labels = labels.to(device)
 
-            losses = loss_func(net(images), labels).detach().cpu()
+            losses = loss_func(teacher_net(images), labels).detach().cpu()
             loss_indv.append(losses)
 
         match threshold_type:
