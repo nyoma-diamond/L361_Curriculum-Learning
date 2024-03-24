@@ -23,6 +23,11 @@ class CurriculumType(Enum):
 
 
 def get_device(log=False):
+    """
+    Get the device for torch to use
+
+    :param log: print out which device was selected
+    """
     if torch.cuda.is_available():
         if log:
             print('Using CUDA')
@@ -44,9 +49,21 @@ def calculate_threshold(
         train_loader: torch.utils.data.DataLoader,
         loss_threshold: float,
         threshold_type: ThresholdType,
-        percentile_type: str,
-        device = DEVICE
+        percentile_type: str = 'linear',
+        device: torch.device = DEVICE
     ):
+    """
+    Compute loss cutoff threshold for curriculum learning
+
+    :param net: model to compute threshold on
+    :param loss_func: loss function to compute threshold with
+    :param train_loader: dataloader containing training data to compute threshold on
+    :param loss_threshold: desired base threshold to compute cutoff from
+    :param threshold_type: ThresholdType indicating whether to use direct loss or percentile/quantile cutoff
+    :param percentile_type: percentile computation method; passed to np.percentile/np.quantile.
+                            expected: 'linear' for true cutoff, 'normal_unbiased' for normal approximated cutoff
+    :param device: CPU/GPU device to compute on (should be same as net's device)
+    """
     assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
 
     loss_indv = np.empty((0))
@@ -80,8 +97,8 @@ def curriculum_learning_loss(
         loss_threshold: float,
         device = DEVICE
     ):
-    '''
-    Inputs: 
+    """
+    Inputs:
     - net: neural network
     - loss_func: loss function for computing threshold
         - Make sure to that no reduction is performed!
@@ -89,7 +106,7 @@ def curriculum_learning_loss(
     - labels: batch of labels
     - loss_threshold: loss cutoff threshold
     - device: CPU/GPU
-    '''
+    """
     assert loss_func.reduction == 'none', 'loss function must have the reduction type "none".'
 
     images = images.to(device)
