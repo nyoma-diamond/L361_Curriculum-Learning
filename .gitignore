@@ -162,3 +162,17 @@ cython_debug/
 .vscode/
 
 data/
+
+client_models/
+
+# FEMNIST dataset
+*femnist.tar.gz
+*femnist
+
+
+*.DS_store
+*.neptune
+self_paced_learning/bug
+results/
+femnist/
+*.tar.gz
