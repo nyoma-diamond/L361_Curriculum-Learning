@@ -1,5 +1,6 @@
 # Modified from https://flower.ai/
 import sys
+import copy
 from collections import OrderedDict
 from typing import Tuple, Dict, Optional
 import warnings
@@ -27,6 +28,8 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
 
     local_net.train()
     global_net.train()
+    
+    init_global_net = copy.deepcopy(global_net)
 
     curriculum_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     criterion_mean = torch.nn.CrossEntropyLoss(reduction='mean')
@@ -72,7 +75,7 @@ def train(local_net: nn.Module, global_net: nn.Module, train_loader: DataLoader,
             # Update local model
             local_loss = criterion_mean(local_net(images), labels)
             local_loss.backward()
-            for local_param, global_param in zip(local_net.parameters(), global_net.parameters()):
+            for local_param, global_param in zip(local_net.parameters(), init_global_net.parameters()):
                 local_param.grad += config['lambda'] * (local_param - global_param)
             local_optimizer.step()
 

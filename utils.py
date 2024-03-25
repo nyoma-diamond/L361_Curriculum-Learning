@@ -91,9 +91,9 @@ def compute_curriculum(
     keep_indices = []
 
     for batch in loss_indv:
-        b = batch >= loss_threshold  # get indicies of which are larger than loss_threshold
+        b = batch >= loss_threshold  # get indices of which are larger than loss_threshold
         trash_indices.append(b.nonzero().flatten())
-        d = batch < loss_threshold  # get indicies of which are larger than loss_threshold
+        d = batch < loss_threshold  # get indices of which are larger than loss_threshold
         keep_indices.append(d.nonzero().flatten())
 
     return trash_indices, keep_indices, loss_threshold, loss_indv
